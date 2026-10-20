@@ -1,0 +1,103 @@
+# =====================================================================
+# SARMAD Attendance - Apache / DirectAdmin routing & hardening
+# =====================================================================
+# Works both when the project is extracted into the domain root
+# (public_html/) and when it lives in a sub-directory.
+
+# ---------------------------------------------------------------------
+# 1) Disable directory listing
+# ---------------------------------------------------------------------
+Options -Indexes
+
+# ---------------------------------------------------------------------
+# 2) Default documents
+# ---------------------------------------------------------------------
+DirectoryIndex index.php
+
+# ---------------------------------------------------------------------
+# 3) Hard block: never serve internal / sensitive files
+# ---------------------------------------------------------------------
+<FilesMatch "(?i)\.(sql|md|log|lock|ini|json|yml|yaml|sh|bak|old|dist|sample|example|env)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<FilesMatch "^(config\.php|config\.sample\.php|\.env|\.htaccess|\.htpasswd|composer\.(json|lock))$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block dot-files (.git, .env, ...)
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ---------------------------------------------------------------------
+# 4) Front controller rewrite
+# ---------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Detect the base path automatically (root or sub-directory)
+    RewriteCond %{REQUEST_URI}::$1 ^(.*?/)(.*)::\2$
+    RewriteRule ^(.*)$ - [E=BASE:%1]
+
+    # Never rewrite real files inside these public asset directories
+    RewriteRule ^(assets|uploads)/ - [L]
+
+    # Never rewrite the installer directory (it has its own entry point)
+    RewriteRule ^install/? - [L]
+
+    # Do not touch existing files
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Everything else goes to the front controller
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# ---------------------------------------------------------------------
+# 5) Security headers (safe defaults for a shared hosting account)
+# ---------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-Permitted-Cross-Domain-Policies "none"
+</IfModule>
+
+# ---------------------------------------------------------------------
+# 6) Never execute PHP inside uploads/ (belt & braces, see uploads/.htaccess)
+# ---------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteRule ^uploads/.*\.(ph(p[0-9]?|tml|ar)|shtml|cgi|pl|py|sh)$ - [F,L,NC]
+</IfModule>
+
+# ---------------------------------------------------------------------
+# 7) PHP runtime hardening (only what DirectAdmin allows via .htaccess)
+# ---------------------------------------------------------------------
+<IfModule mod_php.c>
+    php_flag display_errors off
+    php_flag expose_php off
+    php_flag allow_url_fopen off
+    php_flag allow_url_include off
+    php_flag session.use_strict_mode on
+    php_flag session.cookie_httponly on
+    php_value session.use_only_cookies 1
+</IfModule>

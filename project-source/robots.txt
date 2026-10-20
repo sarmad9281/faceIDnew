@@ -1,0 +1,3 @@
+# SARMAD Attendance - do not index the application surface
+User-agent: *
+Disallow: /

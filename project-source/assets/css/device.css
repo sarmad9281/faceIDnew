@@ -1,0 +1,1150 @@
+/* =====================================================================
+   SARMAD Attendance - Kiosk / PWA stylesheet (stage 4)
+   ---------------------------------------------------------------------
+   This file is ONLY used by the attendance device (views/device/*).
+   Design goals:
+     - premium, modern, dark, RTL
+     - touch first: every target is at least 64px tall
+     - readable from two metres: big clock, big labels, high contrast
+     - looks like real hardware, not like an admin panel
+     - works offline (no external font / icon / CDN request)
+   ===================================================================== */
+
+:root {
+    --k-bg: #070b16;
+    --k-bg-2: #0d1424;
+    --k-card: rgba(21, 30, 51, 0.72);
+    --k-card-2: rgba(15, 22, 39, 0.9);
+    --k-line: rgba(122, 152, 214, 0.18);
+    --k-line-strong: rgba(122, 152, 214, 0.34);
+    --k-text: #eef4ff;
+    --k-muted: #9db0d4;
+    --k-dim: #6c7c9c;
+    --k-brand: #4f8cff;
+    --k-brand-2: #7b5cff;
+    --k-entry: #12b981;
+    --k-entry-2: #0e9c6c;
+    --k-exit: #f59e0b;
+    --k-exit-2: #d97706;
+    --k-danger: #ef4444;
+    --k-ok: #22c55e;
+    --k-radius: 26px;
+    --k-shadow: 0 24px 60px rgba(3, 7, 18, 0.55);
+    --k-font: "Vazirmatn", "IRANSans", Tahoma, "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--k-bg);
+    color: var(--k-text);
+    font-family: var(--k-font);
+    direction: rtl;
+    overscroll-behavior: none;
+}
+
+body.kiosk {
+    /* Deep gradient + two soft glows: gives the "dedicated appliance" feel */
+    background:
+        radial-gradient(1100px 620px at 82% -8%, rgba(79, 140, 255, 0.20), transparent 60%),
+        radial-gradient(900px 520px at 8% 108%, rgba(123, 92, 255, 0.18), transparent 62%),
+        linear-gradient(160deg, var(--k-bg-2) 0%, var(--k-bg) 55%, #05080f 100%);
+    background-attachment: fixed;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+    min-height: 100dvh;
+}
+
+.kiosk.idle-hidden-cursor {
+    cursor: none;
+}
+
+.kiosk button,
+.kiosk input,
+.kiosk select {
+    font-family: inherit;
+}
+
+.k-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.k-ltr {
+    direction: ltr;
+    unicode-bidi: embed;
+}
+
+/* ---------------------------------------------------------------------
+   Shell
+   ------------------------------------------------------------------- */
+.k-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    padding: 20px clamp(16px, 3vw, 44px) 18px;
+    gap: 16px;
+}
+
+.k-top {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 2vw, 26px);
+    padding: clamp(12px, 1.6vh, 20px) clamp(16px, 2vw, 28px);
+    border: 1px solid var(--k-line);
+    border-radius: var(--k-radius);
+    background: linear-gradient(180deg, rgba(24, 34, 58, 0.78), rgba(12, 18, 33, 0.72));
+    box-shadow: var(--k-shadow);
+    backdrop-filter: blur(14px);
+}
+
+.k-brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+}
+
+.k-logo {
+    width: clamp(56px, 7vh, 84px);
+    height: clamp(56px, 7vh, 84px);
+    border-radius: 20px;
+    object-fit: cover;
+    background: linear-gradient(140deg, var(--k-brand), var(--k-brand-2));
+    display: grid;
+    place-items: center;
+    font-size: clamp(22px, 2.6vh, 32px);
+    font-weight: 800;
+    color: #fff;
+    border: 1px solid var(--k-line-strong);
+    flex: 0 0 auto;
+    letter-spacing: 1px;
+}
+
+.k-brand-text {
+    min-width: 0;
+}
+
+.k-business {
+    margin: 0;
+    font-size: clamp(20px, 3.1vh, 34px);
+    font-weight: 800;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.k-branch {
+    margin: 4px 0 0;
+    color: var(--k-muted);
+    font-size: clamp(13px, 1.7vh, 18px);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.k-branch .k-dot-sep {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--k-dim);
+    display: inline-block;
+}
+
+.k-top-meta {
+    margin-inline-start: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.k-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--k-line);
+    background: rgba(11, 17, 30, 0.6);
+    font-size: clamp(12px, 1.5vh, 15px);
+    color: var(--k-muted);
+    white-space: nowrap;
+}
+
+.k-pill strong {
+    color: var(--k-text);
+    font-weight: 700;
+}
+
+.k-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--k-dim);
+    box-shadow: 0 0 0 4px rgba(108, 124, 156, 0.14);
+}
+
+.k-status-dot.is-online {
+    background: var(--k-ok);
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.16);
+}
+
+.k-status-dot.is-offline {
+    background: var(--k-danger);
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.16);
+}
+
+.k-status-dot.is-syncing {
+    background: var(--k-exit);
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16);
+    animation: k-pulse 1.2s infinite ease-in-out;
+}
+
+@keyframes k-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+/* ---------------------------------------------------------------------
+   Clock
+   ------------------------------------------------------------------- */
+.k-clock {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+    padding: clamp(6px, 1.4vh, 18px) 0;
+}
+
+.k-clock-time {
+    font-size: clamp(58px, 15vh, 190px);
+    line-height: 0.98;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 22px 60px rgba(6, 12, 26, 0.75);
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.k-clock-seconds {
+    font-size: 0.34em;
+    color: var(--k-brand);
+    font-weight: 700;
+}
+
+.k-clock-date {
+    font-size: clamp(15px, 2.4vh, 30px);
+    color: var(--k-muted);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.k-clock-date .k-greg {
+    color: var(--k-dim);
+    font-size: 0.82em;
+    direction: ltr;
+}
+
+.k-clock.hide-clock .k-clock-time,
+.k-clock.hide-clock .k-clock-date {
+    visibility: hidden;
+}
+
+/* ---------------------------------------------------------------------
+   Entry / exit buttons
+   ------------------------------------------------------------------- */
+.k-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(14px, 2vw, 30px);
+    padding-bottom: 4px;
+}
+
+.k-action {
+    position: relative;
+    border: 1px solid var(--k-line-strong);
+    border-radius: var(--k-radius);
+    min-height: clamp(150px, 30vh, 320px);
+    padding: clamp(18px, 3vh, 34px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 1.4vh, 16px);
+    color: #fff;
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    box-shadow: 0 20px 46px rgba(4, 9, 20, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.k-action::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(120% 90% at 50% -20%, rgba(255, 255, 255, 0.22), transparent 60%);
+    pointer-events: none;
+}
+
+.k-action .k-action-icon {
+    width: clamp(42px, 6.4vh, 78px);
+    height: clamp(42px, 6.4vh, 78px);
+    opacity: 0.96;
+}
+
+.k-action .k-action-label {
+    font-size: clamp(30px, 6.4vh, 82px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+}
+
+.k-action .k-action-hint {
+    font-size: clamp(13px, 1.7vh, 19px);
+    opacity: 0.86;
+    font-weight: 600;
+}
+
+.k-action-entry {
+    background: linear-gradient(150deg, var(--k-entry) 0%, var(--k-entry-2) 62%, #0a7d57 100%);
+}
+
+.k-action-exit {
+    background: linear-gradient(150deg, var(--k-exit) 0%, var(--k-exit-2) 62%, #a85f04 100%);
+}
+
+.k-action:active,
+.k-action.is-pressed {
+    transform: translateY(2px) scale(0.995);
+    filter: brightness(1.06);
+}
+
+.k-action:focus-visible {
+    outline: 4px solid rgba(255, 255, 255, 0.55);
+    outline-offset: 4px;
+}
+
+.k-action[aria-disabled="true"] {
+    filter: grayscale(0.5) brightness(0.7);
+    pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------
+   Footer
+   ------------------------------------------------------------------- */
+.k-footer {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    color: var(--k-dim);
+    font-size: clamp(11px, 1.4vh, 14px);
+    padding: 0 6px;
+}
+
+.k-footer .k-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ---------------------------------------------------------------------
+   Connection / offline banner
+   ------------------------------------------------------------------- */
+.k-banner {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-radius: 18px;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    background: rgba(120, 72, 6, 0.28);
+    color: #ffd899;
+    font-weight: 600;
+    font-size: clamp(12px, 1.6vh, 17px);
+}
+
+.kiosk.is-offline .k-banner-offline {
+    display: flex;
+}
+
+.k-banner-queue {
+    margin-inline-start: auto;
+    font-weight: 700;
+    color: #ffe6b3;
+}
+
+/* ---------------------------------------------------------------------
+   Overlay screens (camera, success, error, activation)
+   ------------------------------------------------------------------- */
+.k-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: none;
+    flex-direction: column;
+    background: radial-gradient(900px 520px at 50% -10%, rgba(79, 140, 255, 0.16), transparent 60%), rgba(4, 7, 14, 0.96);
+    backdrop-filter: blur(6px);
+    padding: clamp(14px, 2.4vh, 30px);
+    gap: 14px;
+}
+
+.k-overlay.is-open {
+    display: flex;
+}
+
+.k-overlay-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.k-overlay-title {
+    margin: 0;
+    font-size: clamp(18px, 2.6vh, 30px);
+    font-weight: 800;
+}
+
+.k-overlay-sub {
+    margin: 2px 0 0;
+    color: var(--k-muted);
+    font-size: clamp(12px, 1.6vh, 16px);
+}
+
+.k-overlay-head .k-btn {
+    margin-inline-start: auto;
+}
+
+/* Camera */
+.k-camera-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    border-radius: 28px;
+    overflow: hidden;
+    border: 1px solid var(--k-line-strong);
+    background: #05070d;
+    display: grid;
+    place-items: center;
+    min-height: 0;
+}
+
+.k-camera-video,
+.k-camera-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #05070d;
+}
+
+.k-camera-video {
+    transform: scaleX(-1); /* mirror: the user must see themselves like a mirror */
+}
+
+.k-camera-video.is-rear {
+    transform: none;
+}
+
+/* Face placement frame */
+.k-face-frame {
+    position: relative;
+    width: min(52vh, 62%);
+    aspect-ratio: 3 / 4;
+    max-height: 78%;
+    border-radius: 50% / 42%;
+    box-shadow: 0 0 0 200vmax rgba(3, 6, 12, 0.55);
+    border: 2px dashed rgba(160, 190, 255, 0.55);
+    display: grid;
+    place-items: center;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.k-face-frame::before,
+.k-face-frame::after {
+    content: "";
+    position: absolute;
+    inset: -10px;
+    border-radius: inherit;
+    border: 3px solid transparent;
+    border-top-color: rgba(79, 140, 255, 0.85);
+    border-bottom-color: rgba(79, 140, 255, 0.35);
+    animation: k-scan 3.4s linear infinite;
+}
+
+.k-face-frame::after {
+    animation-duration: 5.2s;
+    border-top-color: rgba(123, 92, 255, 0.7);
+    border-bottom-color: rgba(123, 92, 255, 0.3);
+}
+
+@keyframes k-scan {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.k-face-frame.is-multiple {
+    border-color: rgba(239, 68, 68, 0.95);
+    border-style: solid;
+}
+
+.k-face-frame .k-face-box {
+    position: absolute;
+    top: 18%;
+    height: 64%;
+    left: var(--k-face-left, 30%);
+    width: var(--k-face-width, 40%);
+    border: 2px solid rgba(34, 197, 94, 0.9);
+    border-radius: 18px;
+    opacity: 0;
+    transition: opacity 0.2s ease, left 0.15s ease, width 0.15s ease;
+    pointer-events: none;
+}
+
+.k-face-frame.is-locked .k-face-box {
+    opacity: 1;
+}
+
+.k-face-frame .k-face-label {
+    position: absolute;
+    bottom: -34px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.95rem;
+    color: rgba(214, 226, 255, 0.85);
+    white-space: nowrap;
+}
+
+.k-face-frame.is-locked {
+    border-color: rgba(34, 197, 94, 0.95);
+    border-style: solid;
+    box-shadow: 0 0 0 200vmax rgba(3, 6, 12, 0.55), 0 0 46px rgba(34, 197, 94, 0.35) inset;
+}
+
+.k-face-frame.is-warning {
+    border-color: rgba(245, 158, 11, 0.95);
+    border-style: solid;
+}
+
+.k-camera-hint {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    padding: clamp(10px, 1.8vh, 20px);
+    text-align: center;
+    font-size: clamp(14px, 2vh, 22px);
+    font-weight: 700;
+    background: linear-gradient(0deg, rgba(3, 6, 12, 0.92), transparent);
+    color: #e8f0ff;
+}
+
+.k-camera-top {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    padding: clamp(10px, 1.8vh, 18px);
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    background: linear-gradient(180deg, rgba(3, 6, 12, 0.85), transparent);
+}
+
+.k-state-chip {
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(11, 17, 30, 0.82);
+    border: 1px solid var(--k-line-strong);
+    font-size: clamp(12px, 1.6vh, 16px);
+    font-weight: 700;
+    color: var(--k-text);
+    display: none;
+    align-items: center;
+    gap: 8px;
+}
+
+.k-state-chip.is-on {
+    display: inline-flex;
+}
+
+.k-spinner {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #fff;
+    animation: k-spin 0.9s linear infinite;
+}
+
+@keyframes k-spin {
+    to { transform: rotate(360deg); }
+}
+
+.k-scanline {
+    position: absolute;
+    inset-inline: 0;
+    height: 26%;
+    background: linear-gradient(180deg, transparent, rgba(79, 140, 255, 0.28), transparent);
+    animation: k-sweep 2.1s ease-in-out infinite;
+    display: none;
+}
+
+.k-camera-wrap.is-recognizing .k-scanline {
+    display: block;
+}
+
+@keyframes k-sweep {
+    0% { top: -30%; }
+    100% { top: 100%; }
+}
+
+/* ---------------------------------------------------------------------
+   Result cards (success / error)
+   ------------------------------------------------------------------- */
+.k-result {
+    margin: auto;
+    width: min(760px, 100%);
+    border-radius: 34px;
+    border: 1px solid var(--k-line-strong);
+    background: linear-gradient(180deg, rgba(24, 34, 58, 0.9), rgba(9, 14, 26, 0.92));
+    box-shadow: var(--k-shadow);
+    padding: clamp(22px, 4vh, 46px);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(10px, 1.6vh, 20px);
+}
+
+.k-result.is-success {
+    border-color: rgba(34, 197, 94, 0.45);
+}
+
+.k-result.is-error {
+    border-color: rgba(239, 68, 68, 0.45);
+}
+
+.k-result.is-warning {
+    border-color: rgba(245, 158, 11, 0.45);
+}
+
+.k-result-icon {
+    width: clamp(64px, 9vh, 118px);
+    height: clamp(64px, 9vh, 118px);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    border: 2px solid currentColor;
+}
+
+.k-result.is-success .k-result-icon {
+    color: var(--k-ok);
+    background: rgba(34, 197, 94, 0.12);
+}
+
+.k-result.is-error .k-result-icon {
+    color: var(--k-danger);
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.k-result.is-warning .k-result-icon {
+    color: var(--k-exit);
+    background: rgba(245, 158, 11, 0.12);
+}
+
+.k-result-title {
+    margin: 0;
+    font-size: clamp(22px, 3.6vh, 42px);
+    font-weight: 800;
+}
+
+.k-result-message {
+    margin: 0;
+    font-size: clamp(15px, 2.1vh, 24px);
+    color: var(--k-muted);
+    line-height: 1.9;
+    max-width: 46ch;
+}
+
+.k-employee {
+    display: flex;
+    align-items: center;
+    gap: clamp(14px, 2vh, 24px);
+    padding: clamp(12px, 1.8vh, 20px);
+    border-radius: 24px;
+    background: rgba(9, 14, 26, 0.72);
+    border: 1px solid var(--k-line);
+    width: 100%;
+    justify-content: center;
+}
+
+.k-employee-photo {
+    width: clamp(64px, 9vh, 112px);
+    height: clamp(64px, 9vh, 112px);
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--k-line-strong);
+    background: rgba(79, 140, 255, 0.16);
+    display: grid;
+    place-items: center;
+    font-size: clamp(20px, 2.6vh, 30px);
+    font-weight: 800;
+    color: #dce8ff;
+    flex: 0 0 auto;
+}
+
+.k-employee-name {
+    font-size: clamp(22px, 3.4vh, 38px);
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.k-employee-meta {
+    color: var(--k-muted);
+    font-size: clamp(13px, 1.8vh, 19px);
+    margin-top: 4px;
+}
+
+.k-result-facts {
+    display: flex;
+    gap: clamp(8px, 1.4vw, 18px);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.k-fact {
+    padding: 10px 18px;
+    border-radius: 16px;
+    background: rgba(11, 17, 30, 0.66);
+    border: 1px solid var(--k-line);
+    min-width: 132px;
+}
+
+.k-fact span {
+    display: block;
+    color: var(--k-dim);
+    font-size: clamp(11px, 1.4vh, 14px);
+    margin-bottom: 4px;
+}
+
+.k-fact strong {
+    font-size: clamp(15px, 2vh, 22px);
+    font-weight: 800;
+}
+
+/* ---------------------------------------------------------------------
+   Buttons / forms (kiosk flavour)
+   ------------------------------------------------------------------- */
+.k-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 64px;
+    padding: 14px 26px;
+    border-radius: 18px;
+    border: 1px solid var(--k-line-strong);
+    background: rgba(20, 29, 50, 0.9);
+    color: var(--k-text);
+    font-size: clamp(15px, 2vh, 20px);
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s ease, filter 0.15s ease, background 0.2s ease;
+}
+
+.k-btn:active {
+    transform: translateY(1px);
+}
+
+.k-btn-primary {
+    border-color: transparent;
+    background: linear-gradient(140deg, var(--k-brand), var(--k-brand-2));
+    box-shadow: 0 14px 34px rgba(79, 140, 255, 0.28);
+}
+
+.k-btn-ghost {
+    background: transparent;
+}
+
+.k-btn-danger {
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(90, 20, 24, 0.5);
+    color: #ffd9d9;
+}
+
+.k-btn-lg {
+    min-height: 78px;
+    font-size: clamp(17px, 2.4vh, 24px);
+    padding: 18px 34px;
+}
+
+.k-btn[disabled] {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.k-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.k-field > span {
+    color: var(--k-muted);
+    font-size: clamp(13px, 1.7vh, 17px);
+    font-weight: 600;
+}
+
+.k-input {
+    min-height: 68px;
+    border-radius: 18px;
+    border: 1px solid var(--k-line-strong);
+    background: rgba(8, 12, 22, 0.85);
+    color: var(--k-text);
+    padding: 14px 20px;
+    font-size: clamp(19px, 2.6vh, 28px);
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-align: center;
+    direction: ltr;
+}
+
+.k-input::placeholder {
+    letter-spacing: normal;
+    color: var(--k-dim);
+    font-weight: 500;
+}
+
+/* Touch keypad (activation code entry) */
+.k-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: min(430px, 100%);
+    margin-inline: auto;
+}
+
+.k-key {
+    min-height: 66px;
+    border-radius: 18px;
+    border: 1px solid var(--k-line);
+    background: rgba(18, 26, 44, 0.9);
+    color: var(--k-text);
+    font-size: clamp(20px, 2.6vh, 28px);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.k-key:active {
+    background: rgba(79, 140, 255, 0.28);
+}
+
+.k-key-wide {
+    grid-column: span 2;
+}
+
+/* ---------------------------------------------------------------------
+   Settings drawer (non-sensitive device preferences)
+   ------------------------------------------------------------------- */
+.k-drawer {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: min(460px, 92vw);
+    background: linear-gradient(180deg, #0b1220, #070b16);
+    border-inline-end: 1px solid var(--k-line-strong);
+    box-shadow: -30px 0 70px rgba(2, 5, 12, 0.6);
+    transform: translateX(-102%);
+    transition: transform 0.28s ease;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+}
+
+[dir="rtl"] .k-drawer {
+    transform: translateX(102%);
+}
+
+.k-drawer.is-open,
+[dir="rtl"] .k-drawer.is-open {
+    transform: none;
+}
+
+.k-drawer-head {
+    padding: 22px 24px 16px;
+    border-bottom: 1px solid var(--k-line);
+}
+
+.k-drawer-body {
+    padding: 18px 24px 30px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.k-switch-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--k-line);
+    border-radius: 18px;
+    background: rgba(13, 20, 36, 0.7);
+}
+
+.k-switch-row .k-switch-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.k-switch-row strong {
+    display: block;
+    font-size: clamp(14px, 1.8vh, 18px);
+}
+
+.k-switch-row small {
+    color: var(--k-dim);
+    font-size: clamp(11px, 1.4vh, 14px);
+}
+
+.k-switch {
+    position: relative;
+    width: 62px;
+    height: 34px;
+    flex: 0 0 auto;
+}
+
+.k-switch input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.k-switch-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: rgba(108, 124, 156, 0.35);
+    transition: background 0.2s ease;
+}
+
+.k-switch-track::after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    inset-inline-end: 4px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s ease;
+}
+
+.k-switch input:checked + .k-switch-track {
+    background: linear-gradient(140deg, var(--k-brand), var(--k-brand-2));
+}
+
+.k-switch input:checked + .k-switch-track::after {
+    transform: translateX(-28px);
+}
+
+.k-lock-note {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px dashed var(--k-line-strong);
+    background: rgba(79, 140, 255, 0.08);
+    color: var(--k-muted);
+    font-size: clamp(12px, 1.5vh, 15px);
+    line-height: 1.9;
+}
+
+.k-info-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.k-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    background: rgba(13, 20, 36, 0.6);
+    border: 1px solid var(--k-line);
+    font-size: clamp(12px, 1.5vh, 15px);
+}
+
+.k-info-row span {
+    color: var(--k-dim);
+}
+
+.k-info-row strong {
+    font-weight: 700;
+}
+
+.k-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 6, 12, 0.6);
+    backdrop-filter: blur(2px);
+    z-index: 55;
+    display: none;
+}
+
+.k-scrim.is-open {
+    display: block;
+}
+
+/* ---------------------------------------------------------------------
+   Activation screen
+   ------------------------------------------------------------------- */
+.k-activate {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 26px 18px;
+}
+
+.k-activate-card {
+    width: min(620px, 100%);
+    border-radius: 32px;
+    border: 1px solid var(--k-line-strong);
+    background: linear-gradient(180deg, rgba(24, 34, 58, 0.86), rgba(9, 14, 26, 0.92));
+    box-shadow: var(--k-shadow);
+    padding: clamp(22px, 4vh, 44px);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    align-items: center;
+}
+
+.k-activate-logo {
+    width: 92px;
+    height: 92px;
+    border-radius: 26px;
+    background: linear-gradient(140deg, var(--k-brand), var(--k-brand-2));
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 30px;
+    letter-spacing: 1px;
+    box-shadow: 0 18px 40px rgba(79, 140, 255, 0.28);
+}
+
+.k-activate-card h1 {
+    margin: 0;
+    font-size: clamp(20px, 3vh, 32px);
+}
+
+.k-activate-card p {
+    margin: 0;
+    color: var(--k-muted);
+    line-height: 2;
+    font-size: clamp(13px, 1.8vh, 17px);
+}
+
+/* ---------------------------------------------------------------------
+   Loading / boot skeleton
+   ------------------------------------------------------------------- */
+.k-boot {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: var(--k-bg);
+    z-index: 90;
+    gap: 18px;
+}
+
+.k-boot.is-hidden {
+    display: none;
+}
+
+.k-boot-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    color: var(--k-muted);
+}
+
+/* ---------------------------------------------------------------------
+   Small screens (phone sized kiosk)
+   ------------------------------------------------------------------- */
+@media (max-width: 760px) {
+    .k-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .k-action {
+        min-height: clamp(110px, 20vh, 190px);
+    }
+
+    .k-clock-time {
+        font-size: clamp(46px, 13vh, 110px);
+    }
+
+    .k-top {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .k-top-meta {
+        margin-inline-start: 0;
+        justify-content: flex-start;
+    }
+}
+
+@media (min-width: 1500px) {
+    .k-shell {
+        padding-inline: 56px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .k-face-frame::before,
+    .k-face-frame::after,
+    .k-scanline,
+    .k-status-dot.is-syncing {
+        animation: none;
+    }
+}
+
+@media print {
+    body.kiosk { display: none; }
+}

@@ -1,0 +1,95 @@
+{
+  "name": "SARMAD Attendance face model set",
+  "version": "1.0.0",
+  "model_version": "face-api.js@0.22.2/face_recognition-128d/v1",
+  "engine": "face-api.js",
+  "engine_license": "MIT",
+  "runtime": {
+    "library": "@tensorflow/tfjs",
+    "library_version": "1.7.4",
+    "library_path": "assets/vendor/tfjs-1.7.4.min.js",
+    "engine_path": "assets/vendor/face-api-0.22.2.min.js",
+    "note": "Pinned to the version face-api.js 0.22.2 is built against; verified in Chromium (WebGL) and with the pure JS CPU fallback."
+  },
+  "embedding": {
+    "model": "face_recognition_model",
+    "dimensions": 128,
+    "metric": "euclidean",
+    "default_threshold": 0.55,
+    "note": "The descriptor is produced locally in the browser. Only the 128 numbers are stored/synced; a camera image is never sent to the server for recognition."
+  },
+  "detectors": {
+    "tiny_face_detector": {
+      "files": [
+        "tiny_face_detector_model-weights_manifest.json",
+        "tiny_face_detector_model-shard1"
+      ],
+      "default": true,
+      "why": "Runs comfortably on economical Android tablets (single small CNN)."
+    },
+    "ssd_mobilenetv1": {
+      "files": [
+        "ssd_mobilenetv1_model-weights_manifest.json",
+        "ssd_mobilenetv1_model-shard1",
+        "ssd_mobilenetv1_model-shard2"
+      ],
+      "default": false,
+      "why": "More accurate on small/angled faces, ~4x slower; shipped for deployments that can afford it."
+    }
+  },
+  "files": [
+    {
+      "name": "tiny_face_detector_model-weights_manifest.json",
+      "bytes": 2953,
+      "sha256": "14c60659a31b6b7b1320077171b8f8adcb24ef0e62dde62ce603bcb49a1b49b5"
+    },
+    {
+      "name": "tiny_face_detector_model-shard1",
+      "bytes": 193321,
+      "sha256": "b7503ce7df31039b1c43316a9b865cab6a70dd748cc602d3fa28b551503c3871"
+    },
+    {
+      "name": "face_landmark_68_model-weights_manifest.json",
+      "bytes": 7889,
+      "sha256": "d30f6cc341009ea4f8223876959289b96576fc54a2615f92da9741ab9c5f0bbc"
+    },
+    {
+      "name": "face_landmark_68_model-shard1",
+      "bytes": 356840,
+      "sha256": "4611ef65c87d836d03d684b30eec4d195d8b219fa1dd58fc58945831c6b9299b"
+    },
+    {
+      "name": "face_recognition_model-weights_manifest.json",
+      "bytes": 18303,
+      "sha256": "6619f4126f845c1f7857f39cbd79565f375734f46e0dd25d9602f8dc21cda9f5"
+    },
+    {
+      "name": "face_recognition_model-shard1",
+      "bytes": 4194304,
+      "sha256": "412566a2b8d814d84c60b8055ec5d3b3b2328ef7cd7853384e03ec3db7b053d8"
+    },
+    {
+      "name": "face_recognition_model-shard2",
+      "bytes": 2249728,
+      "sha256": "69350fdecd845c532e44dd8f7d0521c773505ef46b87cc34f46640a0cc334ecc"
+    },
+    {
+      "name": "ssd_mobilenetv1_model-weights_manifest.json",
+      "bytes": 26548,
+      "sha256": "9b84918d1d8b2e988dc5d72c0d77e7cc0a3d433f2452516fcd88dca8051b552f"
+    },
+    {
+      "name": "ssd_mobilenetv1_model-shard1",
+      "bytes": 4194304,
+      "sha256": "6ff16f095b0371f24accb48aab82e595697baa821cf851167cbf9203d1d7ec9a"
+    },
+    {
+      "name": "ssd_mobilenetv1_model-shard2",
+      "bytes": 1422653,
+      "sha256": "2539847e627c8c4a561e999170735e6c527deecc6fdba2959fc5312fb1ea1de3"
+    }
+  ],
+  "source": "https://github.com/justadudewhohacks/face-api.js (weights/ directory, MIT licensed)",
+  "liveness": "not_used",
+  "liveness_note": "Anti-spoofing / liveness detection is deliberately NOT part of this project. There is no model, no column and no option for it."
+}
