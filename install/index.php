@@ -13,6 +13,12 @@
  *   1. config/config.php      (database credentials + app key)
  *   2. storage/installed.lock (self lock, so it cannot run twice)
  * ...and it creates only tables prefixed with  attendance_
+ *
+ * Pre-configured packages: when config/config.php is shipped already
+ * filled in (installed=false), step 1 offers a one-click confirm
+ * (action=use_preconfigured) that verifies the stored credentials
+ * server-side - the database password is never asked for again and
+ * never rendered. The manual form stays available as a fallback.
  * =====================================================================
  */
 
@@ -254,6 +260,23 @@ $defaults = [
     'date_system' => 'jalali',
 ];
 
+/*
+ * Pre-configured package: when config/config.php was shipped already filled
+ * in (the DirectAdmin one-click package), prefill the visible fields from
+ * it. The stored PASSWORD is deliberately not copied into $form/$defaults:
+ * it stays server side (installer_stored_password()/preconfiguredCredentials())
+ * and is never rendered into the HTML.
+ */
+$preconfigured = $installer->preconfiguredCredentials();
+
+if ($preconfigured !== null) {
+    $defaults['db_host']     = $preconfigured['host'];
+    $defaults['db_port']     = (string) $preconfigured['port'];
+    $defaults['db_database'] = $preconfigured['database'];
+    $defaults['db_username'] = $preconfigured['username'];
+    $defaults['db_prefix']   = $preconfigured['prefix'];
+}
+
 /* Whitespace is trimmed from the visible fields ONLY. A secret is used byte
    for byte: trimming would silently change a password (and a password may
    legitimately start or end with a space), which ends in
@@ -284,37 +307,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = (string) ($_POST['action'] ?? '');
 
-    if ($errors === [] && $action === 'test_connection') {
-        // A typed password always wins; if left blank, use the pre-filled
-        // password from config/config.php.
-        $typedPassword = (string) ($post['db_password'] ?? '');
-        if ($typedPassword !== '') {
-            $form['db_password'] = $typedPassword;
-        } else {
-            $storedPassword = installer_stored_password();
-            if ($storedPassword !== '') {
-                $form['db_password'] = $storedPassword;
+    if ($errors === [] && ($action === 'test_connection' || $action === 'use_preconfigured')) {
+        if ($action === 'use_preconfigured') {
+            // ONE-CLICK path for a pre-configured package: every value -
+            // the database password included - is read from the shipped
+            // config/config.php ON THE SERVER. The operator only confirms;
+            // nothing secret is asked for, posted back, or rendered. The
+            // posted form is ignored entirely, so a tampered field cannot
+            // redirect the install to another database/user.
+            $pre = $installer->preconfiguredCredentials();
+
+            if ($pre === null) {
+                $errors[] = 'پیکربندی آماده در config/config.php کامل نیست؛ اطلاعات اتصال را به‌صورت دستی وارد کنید.';
+                $step     = '1';
             } else {
-                $errors[] = 'رمز عبور دیتابیس را وارد کنید.';
+                $form['db_host']     = $pre['host'];
+                $form['db_port']     = (string) $pre['port'];
+                $form['db_database'] = $pre['database'];
+                $form['db_username'] = $pre['username'];
+                $form['db_password'] = $pre['password'];
+                $form['db_prefix']   = $pre['prefix'];
+            }
+        } else {
+            // A typed password always wins; if left blank, use the pre-filled
+            // password from config/config.php.
+            $typedPassword = (string) ($post['db_password'] ?? '');
+            if ($typedPassword !== '') {
+                $form['db_password'] = $typedPassword;
+            } else {
+                $storedPassword = installer_stored_password();
+                if ($storedPassword !== '') {
+                    $form['db_password'] = $storedPassword;
+                } else {
+                    $errors[] = 'رمز عبور دیتابیس را وارد کنید.';
+                }
             }
         }
 
-        Database::setPrefix((string) $form['db_prefix']);
+        if ($errors === []) {
+            Database::setPrefix((string) $form['db_prefix']);
 
-        $dbReport = $installer->verifyDatabase([
-            'host'     => (string) $form['db_host'],
-            'port'     => (int) $form['db_port'],
-            'database' => (string) $form['db_database'],
-            'username' => (string) $form['db_username'],
-            'password' => (string) $form['db_password'],
-            'charset'  => 'utf8mb4',
-            'prefix'   => (string) $form['db_prefix'],
-        ]);
+            $dbReport = $installer->verifyDatabase([
+                'host'     => (string) $form['db_host'],
+                'port'     => (int) $form['db_port'],
+                'database' => (string) $form['db_database'],
+                'username' => (string) $form['db_username'],
+                'password' => (string) $form['db_password'],
+                'charset'  => 'utf8mb4',
+                'prefix'   => (string) $form['db_prefix'],
+            ]);
+        }
 
-        if (!$dbReport['ok']) {
+        if ($errors === [] && is_array($dbReport) && !$dbReport['ok']) {
             $errors[] = $dbReport['message'];
             $step     = '1';
-        } else {
+        } elseif ($errors === [] && is_array($dbReport) && $dbReport['ok']) {
             $step = '2';
 
             // The service reports which host actually answered: on shared
@@ -524,6 +571,17 @@ installer_view('layout', [
     'sqlFile'       => 'sql/attendance_install.sql',
     'csrfToken'     => installer_csrf(),
     'hasStoredPassword' => installer_has_stored_password(),
+    // Masked summary of the shipped config for the one-click card. The
+    // password and the app.key themselves are NEVER handed to the view -
+    // only the fact that a valid key exists.
+    'preconfigured' => $preconfigured === null ? null : [
+        'host'     => $preconfigured['host'],
+        'port'     => $preconfigured['port'],
+        'database' => $preconfigured['database'],
+        'username' => $preconfigured['username'],
+        'prefix'   => $preconfigured['prefix'],
+        'key_ok'   => $installer->storedAppKeyIsValid(),
+    ],
     'suggestedPassword' => Security::suggestPassword(12),
     'sqlGuardOk'    => SqlGuard::isSafe((string) @file_get_contents($root . '/sql/attendance_install.sql'), InstallerService::prefix()),
 ]);
