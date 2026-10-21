@@ -109,9 +109,9 @@ zip -r -q -X "$OUT" . "${ZIP_ARGS[@]}"
 echo "==> verifying package"
 LIST="$(unzip -Z1 "$OUT")"
 FAIL=0
-need()    { printf '%s\n' "$LIST" | grep -qx "$1" || { echo "  ERROR: missing from package: $1"; FAIL=1; }; }
-forbid()  { printf '%s\n' "$LIST" | grep -qx "$1" && { echo "  ERROR: must not be shipped: $1"; FAIL=1; }; return 0; }
-forbid_re() { printf '%s\n' "$LIST" | grep -qE "$1" && { echo "  ERROR: $2"; FAIL=1; }; return 0; }
+need()    { grep -F -x -q "$1" <<< "$LIST" || { echo "  ERROR: missing from package: $1"; FAIL=1; }; }
+forbid()  { grep -F -x -q "$1" <<< "$LIST" && { echo "  ERROR: must not be shipped: $1"; FAIL=1; }; return 0; }
+forbid_re() { grep -E -q "$1" <<< "$LIST" && { echo "  ERROR: $2"; FAIL=1; }; return 0; }
 
 # The whole point of this package: extract straight into public_html/.
 need "index.php"
@@ -128,7 +128,7 @@ forbid_re '\.log$' "log files in the package"
 
 if [ "$WITH_CONFIG" -eq 1 ]; then
     need "config/config.php"
-    COUNT="$(printf '%s\n' "$LIST" | grep -cx 'config/config.php' || true)"
+    COUNT="$(grep -F -x -c 'config/config.php' <<< "$LIST" || true)"
     [ "$COUNT" = "1" ] || { echo "  ERROR: config/config.php must appear exactly once (found: $COUNT)"; FAIL=1; }
 else
     forbid "config/config.php"
