@@ -4,6 +4,11 @@
 config/config.php
 .env
 
+# Release packages built by build.sh (the --with-config ZIP contains the
+# production config above - it must never be committed)
+/release/
+/*.zip
+
 # Installer lock
 storage/installed.lock
 
