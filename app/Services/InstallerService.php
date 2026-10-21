@@ -40,7 +40,7 @@ final class InstallerService
      * (and support) can see WHICH code is really running on the host - a
      * stale upload or a cached opcode is ruled out in one look.
      */
-    public const BUILD = '2026-10-09.2';
+    public const BUILD = '2026-10-21.1';
 
     public const REQUIRED_TABLES = [
         // stage 1
@@ -254,31 +254,74 @@ final class InstallerService
      * One full verification pass against one host.
      *
      * @param array<string,mixed> $credentials
-     * @return array{ok:bool, message:string, server?:string, database?:string, project_tables?:array<int,string>, foreign_tables?:array<int,string>, missing?:array<int,string>, pdo?:bool}
+     * @return array{ok:bool, message:string, server?:string, database?:string, project_tables?:array<int,string>, foreign_tables?:array<int,string>, missing?:array<int,string>, pdo?:bool, server_ok?:bool, stage?:string, code?:string}
      */
     private function attemptDatabase(array $credentials): array
     {
         $prefix = (string) ($credentials['prefix'] ?? 'attendance_');
 
-        // Direct PDO connection to the database (with dbname in DSN):
+        Database::setPrefix($prefix);
+
+        /*
+         * Step A - SERVER level probe (DSN without dbname).
+         *
+         * This separates two failures that a single "with dbname" connection
+         * cannot tell apart on shared hosting:
+         *   1. the account itself is refused (wrong user/password/host), and
+         *   2. the account is fine but was never added (granted) to the one
+         *      specific database this project must use (DirectAdmin creates
+         *      users and databases separately until "Add User to Database").
+         * Case 2 needs a completely different fix in the panel, so it gets
+         * its own, unambiguous message below instead of a generic 1045 hint.
+         */
         try {
-            Database::setPrefix($prefix);
-            $pdo = Database::connect(array_merge($credentials, ['prefix' => $prefix]));
-            Database::adopt($pdo);
-            $serverVersion = (string) $pdo->query('SELECT VERSION()')->fetchColumn();
+            $serverPdo     = Database::connectServer(array_merge($credentials, ['prefix' => $prefix]));
+            $serverVersion = (string) $serverPdo->query('SELECT VERSION()')->fetchColumn();
+            $serverPdo     = null;
         } catch (Throwable $e) {
             $safe = $this->redact((string) $e->getMessage(), $credentials);
             $hint = $this->diagnoseServerRefusal($credentials, $e);
 
-            Logger::channel('installer')->error('Installer could not connect to the database', [
+            Logger::channel('installer')->error('Installer could not connect to the database server', [
                 'error' => $safe,
                 'hint'  => $hint,
+                'stage' => 'server',
             ]);
 
             return [
-                'ok'      => false,
-                'message' => 'اتصال به دیتابیس برقرار نشد: ' . $safe . ' — ' . $hint
+                'ok'        => false,
+                'server_ok' => false,
+                'stage'     => 'server',
+                'message'   => 'اتصال به سرور دیتابیس برقرار نشد: ' . $safe . ' — ' . $hint
                     . $this->whitespaceWarning($credentials),
+            ];
+        }
+
+        /*
+         * Step B - DATABASE level connection (with dbname in DSN). The server
+         * already accepted these exact credentials, so a refusal here can only
+         * mean "no grant on this specific database" (1044/1045) or "this
+         * database does not exist" (1049) - never a wrong password.
+         */
+        try {
+            $pdo = Database::connect(array_merge($credentials, ['prefix' => $prefix]));
+            Database::adopt($pdo);
+        } catch (Throwable $e) {
+            $safe = $this->redact((string) $e->getMessage(), $credentials);
+
+            Logger::channel('installer')->error('Installer reached the server but not the database', [
+                'error'    => $safe,
+                'stage'    => 'database',
+                'database' => (string) ($credentials['database'] ?? ''),
+                'username' => (string) ($credentials['username'] ?? ''),
+            ]);
+
+            return [
+                'ok'        => false,
+                'server_ok' => true,
+                'stage'     => 'database',
+                'code'      => self::isUnknownDatabaseError($e) ? 'UNKNOWN_DATABASE' : 'DB_ACCESS_DENIED',
+                'message'   => $this->databaseAccessMessage($credentials, $safe, $e),
             ];
         }
 
@@ -294,6 +337,7 @@ final class InstallerService
 
         return [
             'ok'             => true,
+            'server_ok'      => true,
             'message'        => 'اتصال به دیتابیس با موفقیت برقرار شد.',
             'server'         => $serverVersion,
             'host'           => (string) ($credentials['host'] ?? 'localhost'),
@@ -303,6 +347,47 @@ final class InstallerService
             'missing'        => $missing,
             'pdo'            => $pdo instanceof PDO,
         ];
+    }
+
+    /** MySQL/MariaDB 1049 = the named database does not exist at all. */
+    private static function isUnknownDatabaseError(Throwable $error): bool
+    {
+        $message = (string) $error->getMessage();
+
+        return strpos($message, '1049') !== false || stripos($message, 'Unknown database') !== false;
+    }
+
+    /**
+     * Message for "the server accepted the login, the database did not".
+     *
+     * On DirectAdmin a MySQL user and a MySQL database are two separate
+     * objects: creating both is NOT enough, the user must also be added to
+     * the database (MySQL Management -> Add User to Database) before any
+     * "dbname=..." connection or CREATE TABLE can succeed. Because step A
+     * already proved user/password/host are right, this message can say so
+     * with certainty instead of sending the operator to reset a password
+     * that was never wrong. The secret itself is never included.
+     *
+     * @param array<string,mixed> $credentials
+     */
+    private function databaseAccessMessage(array $credentials, string $safeError, Throwable $error): string
+    {
+        $database = (string) ($credentials['database'] ?? '');
+        $username = (string) ($credentials['username'] ?? '');
+
+        if (self::isUnknownDatabaseError($error)) {
+            return 'اتصال به سرور MySQL/MariaDB با موفقیت برقرار شد، اما دیتابیسی با نام «' . $database . '» پیدا نشد'
+                . ' (' . $safeError . '). '
+                . 'در DirectAdmin ← MySQL Management مطمئن شوید دیتابیس «' . $database . '» ساخته شده و نام آن دقیقاً همین است، '
+                . 'سپس این مرحله را دوباره اجرا کنید. هیچ جدولی ایجاد یا تغییر نکرده است.';
+        }
+
+        return 'اتصال به سرور MySQL/MariaDB با کاربر «' . $username . '» موفق بود، اما دسترسی به دیتابیس «' . $database . '» رد شد'
+            . ' (' . $safeError . '). '
+            . 'یعنی نام کاربری و رمز عبور در سطح سرور درست است، ولی این کاربر به همین دیتابیس خاص دسترسی ندارد. '
+            . 'در DirectAdmin ← MySQL Management ← Add User to Database کاربر «' . $username . '» را به دیتابیس «' . $database . '» '
+            . 'اضافه کنید (برای مرحلهٔ نصب، ALL PRIVILEGES لازم است تا جداول با پیشوند attendance_ ساخته شوند)، '
+            . 'سپس همین مرحله را دوباره اجرا کنید. هیچ جدولی ایجاد یا تغییر نکرده است.';
     }
 
     /**
@@ -613,6 +698,77 @@ final class InstallerService
      * ===============================================================*/
 
     /**
+     * Raw content of an already shipped config/config.php, or null when the
+     * file is absent/unreadable. Server side only: callers must never render
+     * the password or the application key from this array.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function storedConfig(): ?array
+    {
+        $file = $this->root . '/config/config.php';
+
+        if (!is_file($file)) {
+            return null;
+        }
+
+        $config = @include $file;
+
+        return is_array($config) ? $config : null;
+    }
+
+    /** Whether the shipped app.key is a real 32-byte (base64) key. */
+    public function storedAppKeyIsValid(): bool
+    {
+        $config = $this->storedConfig();
+        $key    = (string) ($config['app']['key'] ?? '');
+
+        if ($key === '') {
+            return false;
+        }
+
+        $decoded = base64_decode($key, true);
+
+        return $decoded !== false && strlen($decoded) >= 32;
+    }
+
+    /**
+     * Database credentials of a PRE-CONFIGURED package (config/config.php
+     * already filled in before upload), normalised for verifyDatabase().
+     *
+     * Returns null unless every field the installer needs is present - in
+     * that case the wizard can verify the connection with a single confirm
+     * click and never asks for the database password again. The project
+     * prefix is not negotiable: a shipped config with any other prefix is
+     * not treated as pre-configured.
+     *
+     * @return array{host:string,port:int,database:string,username:string,password:string,charset:string,prefix:string}|null
+     */
+    public function preconfiguredCredentials(): ?array
+    {
+        $config = $this->storedConfig();
+        $db     = is_array($config['db'] ?? null) ? $config['db'] : [];
+
+        $credentials = [
+            'host'     => (string) ($db['host'] ?? ''),
+            'port'     => (int) ($db['port'] ?? 3306),
+            'database' => (string) ($db['database'] ?? ''),
+            'username' => (string) ($db['username'] ?? ''),
+            'password' => (string) ($db['password'] ?? ''),
+            'charset'  => (string) ($db['charset'] ?? 'utf8mb4'),
+            'prefix'   => (string) ($db['prefix'] ?? ''),
+        ];
+
+        if ($credentials['host'] === '' || $credentials['database'] === ''
+            || $credentials['username'] === '' || $credentials['password'] === ''
+            || $credentials['prefix'] !== self::prefix()) {
+            return null;
+        }
+
+        return $credentials;
+    }
+
+    /**
      * @param array<string,mixed> $input
      * @return array{ok:bool, message:string, path:string}
      */
@@ -634,7 +790,17 @@ final class InstallerService
         $config['app']['debug']       = ($config['app']['env'] === 'local');
         $config['app']['url']         = rtrim((string) ($input['app_url'] ?? ''), '/');
         $config['app']['timezone']    = (string) ($input['timezone'] ?? 'Asia/Tehran');
-        $config['app']['key']         = base64_encode(random_bytes(32));
+
+        // A pre-configured package already ships a random 32-byte app.key.
+        // Keep it when it is valid (anything encrypted with it - and the key
+        // the operator was given - stays valid); only generate a fresh key
+        // when there is no usable one yet.
+        $storedKey = (string) (($this->storedConfig() ?? [])['app']['key'] ?? '');
+        $decoded   = $storedKey !== '' ? base64_decode($storedKey, true) : false;
+
+        $config['app']['key'] = ($decoded !== false && strlen($decoded) >= 32)
+            ? $storedKey
+            : base64_encode(random_bytes(32));
 
         $config['db']['host']     = (string) ($input['db_host'] ?? 'localhost');
         $config['db']['port']     = (int) ($input['db_port'] ?? 3306);

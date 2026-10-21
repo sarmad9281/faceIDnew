@@ -14,6 +14,7 @@
  * @var string $csrfToken
  * @var string $suggestedPassword
  * @var bool   $sqlGuardOk
+ * @var array|null $preconfigured  masked summary of the shipped config (no secrets)
  */
 $steps = [
     '1' => 'بازبینی پیش‌نیازها و اتصال دیتابیس',
@@ -104,6 +105,37 @@ $current = array_key_exists((string) $step, $steps) ? (string) $step : '1';
                 </tbody>
             </table>
         </section>
+
+        <?php if (!empty($preconfigured) && is_array($preconfigured)): ?>
+        <section class="inst-card">
+            <h1>پیکربندی آماده شناسایی شد</h1>
+            <p class="muted">
+                فایل <code class="ltr">config/config.php</code> همراه همین بسته ارسال شده و کامل است؛
+                نیازی به وارد کردن دوبارهٔ رمز عبور دیتابیس نیست. با یک کلیک، اتصال با همان اطلاعات
+                ذخیره‌شده بررسی می‌شود و به مرحلهٔ ساخت حساب مالک می‌روید. ساخت جداول
+                <code class="ltr"><?= h($prefix) ?>*</code> و قفل نصب (<code class="ltr">storage/installed.lock</code>)
+                در انتهای همان مرحله انجام می‌شود.
+            </p>
+            <ul class="report">
+                <li>هاست دیتابیس: <code class="ltr"><?= h($preconfigured['host']) ?>:<?= h($preconfigured['port']) ?></code></li>
+                <li>دیتابیس: <code class="ltr"><?= h($preconfigured['database']) ?></code></li>
+                <li>کاربر دیتابیس: <code class="ltr"><?= h($preconfigured['username']) ?></code></li>
+                <li>پیشوند جداول: <code class="ltr"><?= h($preconfigured['prefix']) ?></code></li>
+                <li>رمز عبور دیتابیس: ذخیره‌شده در سرور (نمایش داده نمی‌شود)</li>
+                <li>کلید برنامه (app.key): <?= !empty($preconfigured['key_ok']) ? 'معتبر و آماده (۳۲ بایت)' : 'هنگام نصب ساخته می‌شود' ?></li>
+            </ul>
+
+            <form method="post" action="<?= h(installer_url()) ?>" autocomplete="off">
+                <input type="hidden" name="_token" value="<?= h($csrfToken) ?>">
+                <input type="hidden" name="action" value="use_preconfigured">
+                <button type="submit" class="btn btn-primary" <?= $requirementsPassed ? '' : 'disabled' ?>>
+                    تأیید و ادامه نصب با همین پیکربندی
+                </button>
+            </form>
+
+            <p class="muted small">اگر این اطلاعات درست نیست، از فرم دستی بخش بعد استفاده کنید؛ مقدار تایپ‌شده جایگزین پیکربندی آماده می‌شود.</p>
+        </section>
+        <?php endif; ?>
 
         <section class="inst-card">
             <h1>۲. اطلاعات اتصال دیتابیس</h1>
