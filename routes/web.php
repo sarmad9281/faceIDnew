@@ -324,6 +324,11 @@ return static function (Router $router): void {
         ['auth', 'role:manager,owner', 'tenant:single', 'csrf'], 'manager.devices.store');
     $router->post('/manager/devices/activate', [ManagerDeviceController::class, 'activate'],
         ['auth', 'role:manager,owner', 'tenant:single', 'csrf'], 'manager.devices.activate');
+    /* Fresh one-time kiosk code for an OWN PENDING device (TASK_FOR_CODER_6
+       #2c). POST only; the controller re-checks the tenant scope, the
+       device.register capability and the pending status. */
+    $router->post('/manager/devices/activation-code', [ManagerDeviceController::class, 'activationCode'],
+        ['auth', 'role:manager,owner', 'tenant:single', 'csrf'], 'manager.devices.activation-code');
     /* Owner only operations: reachable paths, always refused for a manager. */
     $router->post('/manager/devices/reset', [ManagerDeviceController::class, 'reset'],
         ['auth', 'role:manager,owner', 'tenant:single', 'csrf'], 'manager.devices.reset');

@@ -94,8 +94,8 @@ $badge = static function (string $status): string {
                 </label>
             <?php endif; ?>
         </div>
-        <button type="submit" class="btn btn-primary">ثبت دستگاه و دریافت کد جفت‌سازی</button>
-        <span class="muted small">پس از ثبت، ثبت‌نام دستگاه توسط مالک سامانه مدیریت می‌شود.</span>
+        <button type="submit" class="btn btn-primary">ثبت دستگاه و دریافت کد فعال‌سازی</button>
+        <span class="muted small">پس از ثبت، کد فعال‌سازی یک‌بارمصرف کیوسک (۲۴ ساعت اعتبار) نمایش داده می‌شود؛ روی دستگاه واردش کنید.</span>
     </form>
 </section>
 
@@ -144,6 +144,11 @@ $badge = static function (string $status): string {
                                     <?= $csrf() ?>
                                     <input type="hidden" name="device_id" value="<?= $e($device['id']) ?>">
                                     <button type="submit" class="btn btn-primary btn-sm">تکمیل فعال‌سازی</button>
+                                </form>
+                                <form method="post" action="<?= $e($url('/manager/devices/activation-code')) ?>" class="inline-form" data-confirm="کد فعال‌سازی جدید صادر شود؟ کد قبلی این دستگاه باطل می‌شود و کد جدید فقط یک بار نمایش داده می‌شود.">
+                                    <?= $csrf() ?>
+                                    <input type="hidden" name="device_id" value="<?= $e($device['id']) ?>">
+                                    <button type="submit" class="btn btn-ghost btn-sm">🔑 کد فعال‌سازی کیوسک</button>
                                 </form>
                             <?php else: ?>
                                 <span class="muted small">—</span>
