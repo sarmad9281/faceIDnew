@@ -98,7 +98,7 @@ final class DeviceController
         if (!empty($result['pairing_code'])) {
             // register() issues a real one-time kiosk activation code and
             // returns it under the legacy pairing_code key - say what it is.
-            $message .= ' کد فعال‌سازی کیوسک: ' . (string) $result['pairing_code'] . ' (یک‌بارمصرف، یک ساعت اعتبار — روی دستگاه وارد کنید)';
+            $message .= ' کد فعال‌سازی کیوسک: ' . (string) $result['pairing_code'] . ' (یک‌بارمصرف، ۲۴ ساعت اعتبار — روی دستگاه وارد کنید)';
         }
 
         Session::flash('success', $message);
