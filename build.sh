@@ -119,6 +119,16 @@ need "install/index.php"
 need "sql/attendance_install.sql"
 need "config/config.sample.php"
 need ".htaccess"
+# The camera screens fetch the face-api weight manifests (*.json) from
+# assets/models at runtime: assets/.htaccess re-grants those static
+# types (the root .htaccess denies *.json project-wide). Shipping a
+# package without it - or without the manifests - breaks every camera
+# page with HTTP 403 on Apache/DirectAdmin.
+need "assets/.htaccess"
+need "assets/models/face-api-1.0.0/tiny_face_detector_model-weights_manifest.json"
+need "assets/models/face-api-1.0.0/face_landmark_68_model-weights_manifest.json"
+need "assets/models/face-api-1.0.0/face_recognition_model-weights_manifest.json"
+need "assets/models/face-api-1.0.0/face_recognition_model-shard1"
 forbid_re '^project-source/' "package wraps everything in a project-source/ folder"
 forbid_re '^\./'              "package entries start with ./"
 forbid "storage/installed.lock"
