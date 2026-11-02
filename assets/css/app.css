@@ -79,6 +79,7 @@ code, .ltr { direction: ltr; text-align: left; font-family: Consolas, Monaco, mo
 .btn-ghost { background: transparent; border-color: var(--line); color: #cbd5e1; }
 .btn-danger { background: transparent; border-color: rgba(220,38,38,.5); color: #f87171; }
 .btn-block { width: 100%; }
+.btn-lg { padding: 13px 26px; font-size: 15px; border-radius: 12px; }
 
 /* Tables ------------------------------------------------------------- */
 .table { width: 100%; border-collapse: collapse; }
