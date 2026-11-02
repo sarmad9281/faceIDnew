@@ -394,6 +394,15 @@ body.kiosk {
     display: flex;
 }
 
+/*
+ * The shell JS toggles banners (activation errors, status notes) with
+ * `is-open`. Without this rule the toggle is a no-op: the element keeps
+ * display:none and the message stays invisible while it IS in the DOM.
+ */
+.k-banner.is-open {
+    display: flex;
+}
+
 .k-banner-queue {
     margin-inline-start: auto;
     font-weight: 700;
@@ -409,6 +418,10 @@ body.kiosk {
     z-index: 40;
     display: none;
     flex-direction: column;
+    /* Short/portrait screens must SCROLL the overlay, never clip its
+       controls off the bottom of the screen. */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     background: radial-gradient(900px 520px at 50% -10%, rgba(79, 140, 255, 0.16), transparent 60%), rgba(4, 7, 14, 0.96);
     backdrop-filter: blur(6px);
     padding: clamp(14px, 2.4vh, 30px);
@@ -843,6 +856,12 @@ body.kiosk {
 
 /* Touch keypad (activation code entry) */
 .k-keypad {
+    /*
+     * A grid inside an RTL page lays its first row right-to-left, which
+     * renders the digits as "3 2 1". Keypads are physical objects: force
+     * LTR so every row reads 1 2 3 / 4 5 6 / 7 8 9 / ⌫ 0 پاک.
+     */
+    direction: ltr;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
@@ -1037,9 +1056,17 @@ body.kiosk {
     display: grid;
     place-items: center;
     padding: 26px 18px;
+    /* A phone running the kiosk must be able to scroll down to the last
+       key + the submit button instead of losing them below the fold. */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .k-activate-card {
+    /* auto margins centre the card when it fits and collapse to 0 when
+       it does not, so an overflowing activation card always scrolls from
+       its TOP (a plain centered grid/flex item would clip its head). */
+    margin: auto;
     width: min(620px, 100%);
     border-radius: 32px;
     border: 1px solid var(--k-line-strong);
@@ -1127,6 +1154,92 @@ body.kiosk {
     .k-top-meta {
         margin-inline-start: 0;
         justify-content: flex-start;
+    }
+}
+
+/*
+ * Phone-width kiosk (the activation screen is the critical one): shrink
+ * the card, logo, input and every key so the whole flow - including the
+ * submit button - fits without hunting, and scrolls as a last resort.
+ */
+@media (max-width: 600px) {
+    .k-overlay {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .k-activate {
+        padding: 14px 10px;
+    }
+
+    .k-activate-card {
+        width: 100%;
+        border-radius: 24px;
+        padding: 18px 14px;
+        gap: 12px;
+    }
+
+    .k-activate-logo {
+        width: 64px;
+        height: 64px;
+        border-radius: 20px;
+        font-size: 22px;
+    }
+
+    .k-activate-card h1 {
+        font-size: 20px;
+    }
+
+    .k-activate-card p {
+        font-size: 13px;
+        line-height: 1.8;
+    }
+
+    .k-input {
+        min-height: 56px;
+        padding: 10px 12px;
+        font-size: 20px;
+    }
+
+    .k-keypad {
+        gap: 8px;
+        width: min(340px, 100%);
+    }
+
+    .k-key {
+        min-height: 52px;
+        border-radius: 14px;
+        font-size: 20px;
+    }
+
+    .k-btn-lg {
+        width: 100%;
+        min-height: 60px;
+        padding: 14px 22px;
+        font-size: 17px;
+    }
+}
+
+/* Short screens (landscape phones): compress vertically as well. */
+@media (max-height: 640px) {
+    .k-activate-card {
+        gap: 10px;
+        padding: 16px 14px;
+    }
+
+    .k-activate-logo {
+        width: 56px;
+        height: 56px;
+        border-radius: 18px;
+        font-size: 20px;
+    }
+
+    .k-key {
+        min-height: 46px;
+    }
+
+    .k-input {
+        min-height: 52px;
     }
 }
 
