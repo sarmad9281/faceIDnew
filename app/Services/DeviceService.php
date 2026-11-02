@@ -130,7 +130,12 @@ final class DeviceService
          * holding a dead code. The row is re-read afterwards because
          * issuing changes it (pairing column cleared on purpose).
          */
-        $activation  = $this->issueActivationCode((int) $result['device_id']);
+        /*
+         * 24 hours, not the 60-minute default: the manager registers the
+         * device in the panel now and the kiosk on site may only be
+         * switched on hours later (TASK_FOR_CODER_6 #2a).
+         */
+        $activation  = $this->issueActivationCode((int) $result['device_id'], 60 * 24);
         $handedCode  = (string) $result['pairing_code'];
         $activationInfo = null;
 
