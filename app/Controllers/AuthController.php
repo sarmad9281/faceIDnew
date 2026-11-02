@@ -29,7 +29,10 @@ final class AuthController
     public function showLogin(Request $request): Response
     {
         if (Session::isUser()) {
-            return Redirect::response(AuthService::defaultRedirectFor((string) Session::role()));
+            // effectiveRole(): an owner inside a customer panel (emergency
+            // access) acts as that manager and must not be sent to /owner,
+            // which the owner guard blocks while impersonating.
+            return Redirect::response(AuthService::defaultRedirectFor((string) Session::effectiveRole()));
         }
 
         return Response::html(View::render('auth/login', [
