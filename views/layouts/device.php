@@ -43,7 +43,7 @@ $deviceState = $deviceState ?? 'unactivated';
     <link rel="manifest" href="<?= $e($manifestUrl) ?>">
     <link rel="icon" type="image/png" sizes="192x192" href="<?= $e($asset('/icons/icon-192.png')) ?>">
     <link rel="apple-touch-icon" href="<?= $e($asset('/icons/apple-touch-icon.png')) ?>">
-    <link rel="stylesheet" href="<?= $e($asset('/css/device.css')) ?>">
+    <link rel="stylesheet" href="<?= $e($asset('/css/device.css')) ?>&v=1.0.2">
 </head>
 <body class="kiosk">
 <div id="kiosk"
@@ -76,6 +76,6 @@ $deviceState = $deviceState ?? 'unactivated';
 <script src="<?= $e($asset('/js/face/face-engine.js')) ?>" defer></script>
 <script src="<?= $e($asset('/js/face/face-store.js')) ?>" defer></script>
 <script src="<?= $e($asset('/js/device-queue.js')) ?>" defer></script>
-<script src="<?= $e($asset('/js/device.js')) ?>" defer></script>
+<script src="<?= $e($asset('/js/device.js')) ?>&v=1.0.2" defer></script>
 </body>
 </html>
