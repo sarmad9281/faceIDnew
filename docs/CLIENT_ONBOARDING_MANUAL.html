@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>دفترچه راهنمای جامع مشتریان - سامانه حضور و غیاب هوشمند سرمد</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;900&display=swap');
+
+    :root {
+      --primary: #1e3a8a;
+      --primary-light: #3b82f6;
+      --accent: #0284c7;
+      --success: #059669;
+      --warning: #d97706;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.8;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .hero-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0369a1 100%);
+      color: #ffffff;
+      padding: 3.5rem 2rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .badge-pill {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(8px);
+      padding: 0.35rem 1.2rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .hero-header h1 {
+      font-size: 2.2rem;
+      font-weight: 900;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.5px;
+    }
+
+    .hero-header p {
+      font-size: 1.1rem;
+      color: #cbd5e1;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+
+    .content-body {
+      padding: 2.5rem 2.5rem;
+    }
+
+    .welcome-card {
+      background: linear-gradient(to left, #eff6ff, #f0fdf4);
+      border-right: 5px solid var(--primary-light);
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin-bottom: 2.5rem;
+    }
+
+    .welcome-card h3 {
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+      font-size: 1.25rem;
+    }
+
+    .step-section {
+      margin-bottom: 3.5rem;
+      position: relative;
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary);
+      color: #fff;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin-left: 0.75rem;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.75rem;
+    }
+
+    .step-header h2 {
+      font-size: 1.45rem;
+      color: var(--primary);
+      font-weight: 800;
+    }
+
+    .step-img-box {
+      margin: 1.5rem 0;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+      border: 1px solid var(--border);
+      background: #000;
+      text-align: center;
+    }
+
+    .step-img-box img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .tip-box {
+      background: #fefce8;
+      border-right: 4px solid var(--warning);
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      margin: 1.25rem 0;
+      font-size: 0.95rem;
+      color: #713f12;
+    }
+
+    .info-box {
+      background: #ecfdf5;
+      border-right: 4px solid var(--success);
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      margin: 1.25rem 0;
+      font-size: 0.95rem;
+      color: #065f46;
+    }
+
+    .kiosk-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+
+    .kiosk-card {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      text-align: center;
+    }
+
+    .kiosk-card h4 {
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .faq-item {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .faq-item h4 {
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+      font-size: 1.05rem;
+    }
+
+    .footer {
+      background: #0f172a;
+      color: #94a3b8;
+      text-align: center;
+      padding: 2rem;
+      font-size: 0.9rem;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+        background: #fff;
+      }
+      .container {
+        box-shadow: none;
+        border: none;
+      }
+      .step-section {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="hero-header">
+      <span class="badge-pill">سامانه نسخه سازمانی هوشمند | SARMAD Attendance</span>
+      <h1>دفترچه راهنمای جامع مشتریان و مدیران</h1>
+      <p>راهنمای سریع راه‌اندازی، تعریف شیفت‌ها، ثبت چهره با وب‌کم، فعال‌سازی تبلت کیوسک و گزارش‌گیری در کمتر از ۱۵ دقیقه</p>
+    </div>
+
+    <div class="content-body">
+      <!-- Welcome Message -->
+      <div class="welcome-card">
+        <h3>مدیر و کارفرمای گرامی، خوش آمدید!</h3>
+        <p>از حسن انتخاب و اعتماد شما به <strong>سامانه هوشمند تشخیص چهره سرمد</strong> سپاسگزاریم. این سامانه با فناوری هوش مصنوعی در لبه (On-Device Face AI)، ترددهای سازمان شما را بدون نیاز به دستگاه‌های حجیم و پرهزینه، با دقت صدم ثانیه و قابلیت ثبت آفلاین مدیریت می‌کند.</p>
+      </div>
+
+      <!-- Quick Roadmap -->
+      <div class="step-section">
+        <div class="step-header">
+          <span class="step-badge">★</span>
+          <h2>نقشه راه راه‌اندازی سریع در ۴ گام</h2>
+        </div>
+        <div class="step-img-box">
+          <img src="images/client_guide_welcome_cover.png" alt="مراحل ۴ گانه راه‌اندازی سامانه">
+        </div>
+      </div>
+
+      <!-- Step 1 -->
+      <div class="step-section">
+        <div class="step-header">
+          <span class="step-badge">۱</span>
+          <h2>ورود به پنل و تعریف شیفت‌های کاری سازمان</h2>
+        </div>
+        <p>پس از ورود به پنل کارفرما، شیفت‌های کاری مجموعه را متناسب با زمان‌بندی شرکت خود تعریف کنید:</p>
+        <ul style="padding-right: 1.5rem; margin-top: 0.5rem;">
+          <li>از منوی کناری به بخش <strong>«شیفت‌ها»</strong> بروید و دکمه <strong>«افزودن شیفت جدید»</strong> را بزنید.</li>
+          <li>ساعت ورود (مثلاً <code>08:00</code>) و ساعت خروج (مثلاً <code>16:30</code>) را مشخص کنید.</li>
+          <li>فرجهٔ مجاز تأخیر صبحگاهی (مثلاً ۱۵ دقیقه) و زمان استراحت ناهار (۳۰ دقیقه) را تعیین و ذخیره فرمایید.</li>
+        </ul>
+        <div class="tip-box">
+          <strong>نکته:</strong> می‌توانید چندین شیفت مختلف (شیفت صبح، شیفت عصر، نگهبانی، پاره‌وقت) تعریف کرده و به کارمندان مختلف تخصیص دهید.
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step-section">
+        <div class="step-header">
+          <span class="step-badge">۲</span>
+          <h2>ثبت مشخصات و پرونده پرسنل</h2>
+        </div>
+        <p>از منوی <strong>«پرسنل»</strong> روی دکمه <strong>«افزودن پرسنل جدید»</strong> کلیک فرمایید:</p>
+        <ul style="padding-right: 1.5rem; margin-top: 0.5rem;">
+          <li>نام، کد پرسنلی، شماره تماس و کد ملی کارمند را وارد کنید.</li>
+          <li>شیفت کاری ایجاد شده را به کارمند منتسب نمایید.</li>
+          <li>نوع قرارداد (تمام‌وقت، پاره‌وقت یا پروژه‌ای) را انتخاب و ذخیره کنید.</li>
+        </ul>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step-section">
+        <div class="step-header">
+          <span class="step-badge">۳</span>
+          <h2>ثبت چهره ۳ بعدی با وب‌کم (Face Enrollment)</h2>
+        </div>
+        <p>مهم‌ترین و جذاب‌ترین بخش سامانه! دیگر نیازی به آپلود عکس قدیمی یا فایل نیست؛ هوش مصنوعی چهره را زنده ثبت می‌کند:</p>
+        
+        <div class="step-img-box">
+          <img src="images/banner_step2_face_enroll.png" alt="فرآیند ثبت چهره با وب‌کم">
+        </div>
+
+        <ol style="padding-right: 1.5rem; margin-top: 0.5rem;">
+          <li>در صفحه پرسنل روی دکمه آبی‌رنگ <strong>«ثبت چهره پرسنل»</strong> کلیک کنید.</li>
+          <li>وب‌کم لپ‌تاپ یا دوربین گوشی روشن شده و کادر بیضی راهنما نمایش داده می‌شود.</li>
+          <li>کارمند روبروی دوربین می‌ایستد. سیستم ۳ زاویه باکیفیت را در چند ثانیه ثبت و ذخیره می‌کند.</li>
+        </ol>
+
+        <div class="info-box">
+          <strong>امنیت و محرمانگی داده‌ها:</strong> تصاویر دوربین هرگز به اینترنت یا سرور ثالث ارسال نمی‌شوند. هوش مصنوعی به‌صورت آنی روی دستگاه بردار عددی امن (Descriptor) را محاسبه و ذخیره می‌کند.
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="step-section">
+        <div class="step-header">
+          <span class="step-badge">۴</span>
+          <h2>فعال‌سازی دستگاه کیوسک در ورودی شرکت</h2>
+        </div>
+        <p>هر تبلت، گوشی هوشمند یا کامپیوتر در ورودی دفتر شما، تبدیل به دستگاه هوشمند تردد می‌شود:</p>
+
+        <div class="step-img-box">
+          <img src="images/banner_step3_kiosk_punch.png" alt="دستگاه کیوسک ثبت تردد در ورودی شرکت">
+        </div>
+
+        <div class="kiosk-grid">
+          <div class="kiosk-card">
+            <h4>۱. دریافت کد کیوسک</h4>
+            <p style="font-size: 0.9rem; color: var(--text-muted);">در پنل مدیر به بخش «دستگاه‌ها» رفته و یک کد فعال‌سازی ۱۰ رقمی دریافت کنید.</p>
+          </div>
+          <div class="kiosk-card">
+            <h4>۲. باز کردن روی تبلت</h4>
+            <p style="font-size: 0.9rem; color: var(--text-muted);">روی تبلت آدرس <code>/device</code> را باز کرده و کد ۱۰ رقمی را بزنید.</p>
+          </div>
+          <div class="kiosk-card">
+            <h4>۳. تردد سریع ۰.۴ ثانیه‌ای</h4>
+            <p style="font-size: 0.9rem; color: var(--text-muted);">کارمندان با ایستادن جلوی تبلت و لمس دکمه ورود/خروج تردد خود را ثبت می‌کنند.</p>
+          </div>
+        </div>
+
+        <div class="tip-box">
+          <strong>پشتیبانی از قطعی اینترنت:</strong> دستگاه کیوسک کاملاً آفلاین کار می‌کند! در صورت قطع شدن اینترنت دفتر، ترددها در حافظه تبلت ذخیره و با وصل مجدد اینترنت، خودکار همگام‌سازی می‌گردد.
+        </div>
+      </div>
+
+      <!-- Step 5 -->
+      <div class="step-section">
+        <div class="step-header">
+          <span class="step-badge">۵</span>
+          <h2>مشاهده ترددها و خروجی اکسل برای حسابداری</h2>
+        </div>
+        <p>محاسبات حقوق، اضافه‌کار، کسر کار و مرخصی‌ها با یک کلیک آماده تحویل به واحد مالی است:</p>
+
+        <div class="step-img-box">
+          <img src="images/banner_step4_reports_excel.png" alt="گزارش‌ها و خروجی اکسل">
+        </div>
+
+        <ul style="padding-right: 1.5rem; margin-top: 0.5rem;">
+          <li>به منوی <strong>«گزارش‌ها»</strong> رفته و بازه زمانی دلخواه (مثلاً ماه جاری) را انتخاب کنید.</li>
+          <li>روی دکمه <strong>«خروجی اکسل (.xlsx)»</strong> کلیک نمایید.</li>
+          <li>فایل اکسل راست‌به‌چپ، دارای ستون‌های تفکیک‌شده (حضور، تأخیر، اضافه‌کار و مرخصی) در اختیار شماست.</li>
+        </ul>
+      </div>
+
+      <!-- FAQ Section -->
+      <div class="step-section">
+        <div class="step-header">
+          <span class="step-badge">؟</span>
+          <h2>پرسش‌های متداول مشتریان (FAQ)</h2>
+        </div>
+
+        <div class="faq-item">
+          <h4>آیا امکان تقلب با قرار دادن عکس یا گوشی جلوی دوربین وجود دارد؟</h4>
+          <p>خیر؛ سیستم با تحلیل بافت تصویر و هندسه دقیق زوایای صورت مانع از پذیرش تصاویر دوبعدی یا بی‌کیفیت می‌شود.</p>
+        </div>
+
+        <div class="faq-item">
+          <h4>اگر پرسنل مرخصی یا مأموریت ساعتی داشته باشند چگونه ثبت می‌شود؟</h4>
+          <p>مدیر در بخش «مرخصی‌ها» می‌تواند مرخصی روزانه یا ساعتی را ثبت کند و سیستم آن را از محاسبات جریمه کسر کار کسر می‌نماید.</p>
+        </div>
+
+        <div class="faq-item">
+          <h4>آیا امکان داشتن چند شعبه و چند دستگاه وجود دارد؟</h4>
+          <p>بله؛ می‌توانید به تعداد نامحدود دستگاه کیوسک برای شعب و درهای ورود/خروج مختلف تعریف نمایید.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>سامانه هوشمند مدیریت حضور و غیاب سرمد | پشتیبانی اختصاصی مشتریان سازمانی</p>
+      <p style="margin-top: 0.3rem; font-size: 0.8rem;">کلیه حقوق محفوظ است © ۱۴۰۵</p>
+    </div>
+  </div>
+
+</body>
+</html>
