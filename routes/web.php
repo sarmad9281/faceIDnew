@@ -23,6 +23,7 @@ use App\Controllers\CustomerController;
 use App\Controllers\DashboardController;
 use App\Controllers\DeviceKioskPageController;
 use App\Controllers\DeviceController;
+use App\Controllers\LandingController;
 use App\Controllers\Manager\ActivityController as ManagerActivityController;
 use App\Controllers\Manager\AttendanceController as ManagerAttendanceController;
 use App\Controllers\Manager\BranchController;
@@ -55,6 +56,11 @@ return static function (Router $router): void {
      * ----------------------------------------------------------------*/
     $router->get('/health', [DashboardController::class, 'health'], [], 'health');
 
+    // Public showcase. Guests see the landing page; the controller itself
+    // hands an existing session to the role dispatcher (manager ->
+    // /dashboard, owner -> /owner, device -> /device).
+    $router->get('/', [LandingController::class, 'index'], [], 'home');
+
     /* -----------------------------------------------------------------
      * Authentication
      * ----------------------------------------------------------------*/
@@ -66,8 +72,6 @@ return static function (Router $router): void {
     /* -----------------------------------------------------------------
      * Authenticated area (any human role)
      * ----------------------------------------------------------------*/
-    $router->get('/', [DashboardController::class, 'home'], ['auth'], 'home');
-
     $router->get('/dashboard', [DashboardController::class, 'manager'],
         ['auth', 'role:manager,supervisor,owner', 'tenant:single'], 'dashboard');
 
