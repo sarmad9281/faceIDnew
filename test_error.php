@@ -1,61 +1,61 @@
 <?php
-// SARMAD Attendance - Emergency Diagnostic Script
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
-echo "<!DOCTYPE html><html dir='ltr'><head><meta charset='utf-8'><title>Diagnostic</title></head><body style='font-family:monospace;padding:20px;background:#1e1e1e;color:#ddd;'>";
-echo "<h1>SARMAD Diagnostic Tool</h1>";
-
-// 1. Show latest log entries
-echo "<h2>1. Latest Log File Entries:</h2>";
-$logFiles = glob(__DIR__ . '/storage/logs/*.log');
-if ($logFiles) {
-    rsort($logFiles);
-    $latestLog = $logFiles[0];
-    echo "<p>Reading: <b>" . htmlspecialchars(basename($latestLog)) . "</b></p>";
-    $lines = @file($latestLog);
-    if ($lines) {
-        $tail = array_slice($lines, -25);
-        echo "<pre style='background:#111;color:#0f0;padding:10px;border-radius:8px;overflow-x:auto;'>" . htmlspecialchars(implode("", $tail)) . "</pre>";
-    } else {
-        echo "<p>Log file is empty.</p>";
-    }
-} else {
-    echo "<p>No log files found in storage/logs/</p>";
-}
-
-// 2. Test Boot & Routing
-echo "<h2>2. Testing App Boot & Dispatch:</h2>";
 define('SARMAD_APP', true);
 define('SARMAD_START', microtime(true));
 define('SARMAD_ROOT', __DIR__);
 
+require SARMAD_ROOT . '/app/Bootstrap.php';
+
+// 1. Check Log Files first
+echo "<!DOCTYPE html><html dir='ltr'><head><meta charset='utf-8'><title>Debug Logs</title></head><body style='font-family:monospace;padding:20px;background:#18181b;color:#e4e4e7;'>";
+echo "<h1 style='color:#38bdf8;'>SARMAD System Diagnostics</h1>";
+
+echo "<h2 style='color:#facc15;'>Recent System Logs:</h2>";
+$logs = glob(SARMAD_ROOT . '/storage/logs/*.log');
+if ($logs) {
+    rsort($logs);
+    foreach (array_slice($logs, 0, 2) as $log) {
+        echo "<p>File: <b style='color:#4ade80;'>" . htmlspecialchars(basename($log)) . "</b></p>";
+        $lines = @file($log);
+        if ($lines) {
+            $tail = array_slice($lines, -15);
+            echo "<pre style='background:#09090b;color:#a3e635;padding:12px;border-radius:8px;overflow-x:auto;'>" . htmlspecialchars(implode("", $tail)) . "</pre>";
+        }
+    }
+} else {
+    echo "<p>No log files in storage/logs/</p>";
+}
+
+// 2. Run App with Debug Enabled
+echo "<h2 style='color:#facc15;'>App Execution Trace:</h2>";
 try {
-    require SARMAD_ROOT . '/app/Bootstrap.php';
+    // Register autoloader and error handlers exactly like Bootstrap::run
+    $refMethod = new ReflectionMethod('App\Bootstrap', 'registerAutoloader');
+    $refMethod->setAccessible(true);
+    $refMethod->invoke(null);
+
+    $refConfig = new ReflectionMethod('App\Bootstrap', 'loadConfig');
+    $refConfig->setAccessible(true);
+    $refConfig->invoke(null);
+
+    // Force debug ON so full details are visible
+    \App\Core\Config::set('app.debug', true);
+
     App\Bootstrap::boot();
-    echo "<p style='color:#0f0;'>✓ Bootstrap::boot(): OK</p>";
+    echo "<p style='color:#4ade80;'>✓ Boot completed successfully!</p>";
 
-    $router = new App\Core\Router();
-    $registerWeb = require SARMAD_ROOT . '/routes/web.php';
-    $registerApi = require SARMAD_ROOT . '/routes/api.php';
-    $registerWeb($router);
-    $registerApi($router);
-    echo "<p style='color:#0f0;'>✓ Routes Registration: OK</p>";
-
-    $request = App\Core\Request::capture();
-    echo "<p>Requested Path: <b>" . htmlspecialchars($request->path()) . "</b></p>";
-
-    ob_start();
-    $router->dispatch($request);
-    $output = ob_get_clean();
-    echo "<p style='color:#0f0;'>✓ Router Dispatch: OK (Length: " . strlen($output) . " bytes)</p>";
+    // Now test dispatching request
+    $refDispatch = new ReflectionMethod('App\Bootstrap', 'dispatch');
+    $refDispatch->setAccessible(true);
+    $refDispatch->invoke(null);
 } catch (\Throwable $e) {
-    if (ob_get_level() > 0) ob_end_clean();
-    echo "<div style='background:#500;color:#fff;padding:15px;border-radius:8px;'>";
-    echo "<h3>✗ EXCEPTION CAUGHT!</h3>";
+    echo "<div style='background:#450a0a;border:2px solid #ef4444;color:#fee2e2;padding:16px;border-radius:10px;'>";
+    echo "<h3 style='color:#f87171;margin-top:0;'>CRITICAL ERROR FOUND:</h3>";
     echo "<p><b>Message:</b> " . htmlspecialchars($e->getMessage()) . "</p>";
-    echo "<p><b>File:</b> " . htmlspecialchars($e->getFile()) . " : <b>Line " . $e->getLine() . "</b></p>";
-    echo "<pre style='background:#200;padding:10px;'>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+    echo "<p><b>File:</b> " . htmlspecialchars($e->getFile()) . " : line <b>" . $e->getLine() . "</b></p>";
+    echo "<pre style='background:#1c0404;padding:12px;border-radius:6px;overflow-x:auto;'>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
     echo "</div>";
 }
 
