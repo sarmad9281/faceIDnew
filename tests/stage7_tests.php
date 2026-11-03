@@ -25,7 +25,9 @@
  *                           overtime, absence, leave, branch, inside, trend
  *   B  excel export         real .xlsx, re-opened and read back, Persian text,
  *                           numbers, header/autofilter/freeze, summary,
- *                           tenant isolation, every report type
+ *                           tenant isolation, every report type, Shamsi dates
+ *                           + clean HH:MM clocks, measured column widths and
+ *                           the A4/landscape/fit-to-one-page print layout
  *   C  payroll calculator   monthly / daily / hourly, overtime, late, early,
  *                           absence modes, benefits, deductions, derivation
  *   D  payroll lifecycle    profile -> preview -> period -> finalize ->
@@ -72,6 +74,7 @@ use App\Services\PayrollService;
 use App\Services\ReportService;
 use App\Services\TelegramScheduler;
 use App\Services\TelegramService;
+use App\Support\Jalali;
 
 $keep = in_array('--keep', $argv, true);
 $MARK = 'SARMAD-TEST-S7';
@@ -466,6 +469,18 @@ check('report builder provides columns + rows + summary', $built['columns'] !== 
  * =================================================================== */
 section('B. Excel export (real .xlsx, read back)');
 
+/* ---------- the Shamsi display rule (pure, no database) ---------- */
+eq('Jalali::date turns a Gregorian date into a Shamsi date', Jalali::date('2025-10-06'), '1404/07/14');
+eq('Jalali::date is idempotent for an already Shamsi value', Jalali::date('1404/07/14'), '1404/07/14');
+eq('Jalali::time keeps a clean HH:MM clock', Jalali::time('2025-10-06 08:30:00'), '08:30');
+eq('Jalali::time drops the seconds', Jalali::time('2025-10-06 08:30:59'), '08:30');
+eq('Jalali::time of a date without a clock is a dash', Jalali::time('2025-10-06'), '—');
+eq('Jalali::dateTime joins the Shamsi date and the clock', Jalali::dateTime('2025-10-06 08:30:00'), '1404/07/14 08:30');
+check('Jalali::monthLabel labels a Gregorian month bucket in Shamsi', str_starts_with(Jalali::monthLabel('2025-10'), '1404/07'), Jalali::monthLabel('2025-10'));
+eq('ReportService::present renders a date column in Shamsi', ReportService::present(['key' => 'date', 'format' => 'date'], '2025-10-06'), '1404/07/14');
+eq('ReportService::present renders a clock column as HH:MM', ReportService::present(['key' => 'entry_time', 'format' => 'time'], '2025-10-06 08:30:00'), '08:30');
+check('ReportService knows which formats are real numbers', ReportService::numericFormat('int') && !ReportService::numericFormat('date'));
+
 $exporter = new ExcelExporter();
 $exportDir = Config::path('storage/exports');
 $exported = [];
@@ -510,6 +525,90 @@ if ($dailyFile !== null) {
     check('the sheet is right to left', $sheet->getRightToLeft() === true);
     eq('the header row is frozen below row 7', (string) $sheet->getFreezePane(), 'A8');
     check('AutoFilter covers the table', str_contains((string) $sheet->getAutoFilter()->getRange(), 'A7'));
+
+    /* ---------- official A4 print layout ---------- */
+    $pageSetup = $sheet->getPageSetup();
+
+    eq('the paper size is A4', (int) $pageSetup->getPaperSize(), \PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
+    eq('the sheet is printed in landscape', (string) $pageSetup->getOrientation(), \PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+    eq('the table is fitted to ONE page wide', (int) $pageSetup->getFitToWidth(), 1);
+    eq('the height is not squeezed into a single page', (int) $pageSetup->getFitToHeight(), 0);
+    check('fit-to-page is switched on', $pageSetup->getFitToPage() === true);
+    eq('the title row repeats on every printed page', array_map('intval', $pageSetup->getRowsToRepeatAtTop()), [7, 7]);
+    check('gridlines are printed', $sheet->getPrintGridlines() === true);
+
+    $footer = (string) $sheet->getHeaderFooter()->getOddFooter();
+    check('the footer carries the page number', str_contains($footer, '&P') && str_contains($footer, '&N'), $footer);
+
+    /* ---------- Shamsi dates + clean clocks inside the table ---------- */
+    $dailyRowsDate  = (string) ((new ReportService())->build($customerId, 'daily', $range)['rows'][0]['date'] ?? '');
+    $dateColumnCell = (string) $sheet->getCell('C8')->getValue();
+    check('the date column holds a Shamsi date', (bool) preg_match('#^\d{4}/\d{2}/\d{2}$#', $dateColumnCell), 'value=' . $dateColumnCell);
+    eq('the Shamsi cell is what ReportService::present() produces',
+        $dateColumnCell,
+        ReportService::present(['key' => 'date', 'format' => 'date'], (string) $dailyRowsDate));
+
+    $tableText = '';
+    $shamsiDates = 0;
+    $cleanClocks = 0;
+    $badCells = [];
+
+    for ($row = 8; $row <= 40; $row++) {
+        $dateCell = (string) $sheet->getCell('C' . $row)->getValue();
+
+        if ($dateCell === '') {
+            continue;
+        }
+
+        $tableText .= ' ' . $dateCell;
+
+        if (preg_match('#^\d{4}/\d{2}/\d{2}$#', $dateCell) === 1) {
+            $shamsiDates++;
+        } else {
+            $badCells[] = 'C' . $row . '=' . $dateCell;
+        }
+
+        foreach (['E', 'F'] as $clockColumn) {
+            $clock = (string) $sheet->getCell($clockColumn . $row)->getValue();
+            $tableText .= ' ' . $clock;
+
+            if ($clock === '—' || preg_match('#^\d{2}:\d{2}$#', $clock) === 1) {
+                $cleanClocks++;
+            } else {
+                $badCells[] = $clockColumn . $row . '=' . $clock;
+            }
+        }
+    }
+
+    check('every date cell of the table is Shamsi', $shamsiDates > 0 && $badCells === [], implode(', ', $badCells));
+    check('every clock cell is a clean HH:MM (or a dash)', $cleanClocks > 0);
+    check('no Gregorian date is left in the table', preg_match('#\b20\d{2}-\d{2}-\d{2}\b#', $tableText) !== 1, $tableText);
+    check('no clock cell shows seconds', preg_match('#\d{2}:\d{2}:\d{2}#', $tableText) !== 1, $tableText);
+
+    /* ---------- measure-once column widths (no "###") ---------- */
+    $tooNarrow = [];
+    $widest = 0.0;
+
+    for ($col = 1; $col <= 20; $col++) {
+        $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col);
+
+        if ((string) $sheet->getCell($letter . '7')->getValue() === '') {
+            break;
+        }
+
+        $width = (float) $sheet->getColumnDimension($letter)->getWidth();
+        $widest = max($widest, $width);
+
+        if ($width < 11.0) {
+            $tooNarrow[] = $letter . '=' . $width;
+        }
+    }
+
+    check('no column is narrower than the 11-unit floor', $tooNarrow === [], implode(', ', $tooNarrow));
+    check('the measured widths stay inside the 42-unit ceiling', $widest <= 42.0 && $widest > 11.0, 'widest=' . $widest);
+    check('the date column is wide enough for 1404/07/14',
+        (float) $sheet->getColumnDimension('C')->getWidth() >= 13.0,
+        'width=' . $sheet->getColumnDimension('C')->getWidth());
 
     $headerA = (string) $sheet->getCell('A7')->getValue();
     check('the first column header is Persian', $headerA === 'پرسنل', 'header=' . $headerA);

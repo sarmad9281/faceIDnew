@@ -19,29 +19,18 @@
 
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
-use App\Support\Jalali;
+use App\Services\ReportService;
 
-$isDate = static fn (string $key): bool => in_array($key, ['date', 'from', 'to', 'start_date', 'end_date'], true);
-$isLong = static fn (string $key): bool => in_array($key, ['entry_time', 'exit_time', 'shift_start', 'shift_end', 'entry_at'], true);
-$isNum  = static fn (array $column): bool => isset($column['format']);
-
-$format = static function (array $column, $value) use ($e): string {
-    $format = (string) ($column['format'] ?? '');
-
-    if ($format === 'minutes') {
-        return (string) AttendanceRecord::minutesLabel((int) $value);
-    }
-
-    if ($format === 'money') {
-        return number_format((float) $value, 0);
-    }
-
-    if ($format === 'int') {
-        return (string) (int) $value;
-    }
-
-    return (string) $value;
-};
+/*
+ * One rule for a report cell, shared with the .xlsx exporter:
+ * ReportService::present() renders a date column as a Jalali date
+ * (1404/07/14), a clock column as a clean 08:30 and a number column through its
+ * format. The table can therefore never show a raw Gregorian date, and the
+ * screen and the spreadsheet can not disagree.
+ */
+$format = static fn (array $column, $value): string => ReportService::present($column, $value);
+$isNum  = static fn (array $column): bool => ReportService::numericFormat((string) ($column['format'] ?? ''));
+$isClock = static fn (array $column): bool => ReportService::isDateOrTimeFormat((string) ($column['format'] ?? ''));
 
 $query = static fn (array $overrides): string => $url('/manager/reports?' . http_build_query(array_filter(
     array_merge($filters, $overrides),
@@ -202,19 +191,19 @@ $exportQuery = static fn (): string => $url('/manager/reports/export?' . http_bu
                     <tr>
                         <?php foreach ($data['columns'] as $column): ?>
                             <?php
-                            $key   = (string) $column['key'];
-                            $value = $row[$key] ?? '';
-                            $text  = $format($column, $value);
+                            $key  = (string) $column['key'];
+                            $text = $format($column, $row[$key] ?? '');
 
-                            if ($isDate($key) && (string) $value !== '') {
-                                $text = Jalali::date(substr((string) $value, 0, 10));
-                            } elseif ($isLong($key) && (string) $value !== '') {
-                                $text = substr((string) $value, 11, 5) !== '' && strlen((string) $value) >= 16
-                                    ? substr((string) $value, 0, 10) . ' ' . substr((string) $value, 11, 5)
-                                    : (string) $value;
+                            $class = '';
+
+                            if ($isClock($column)) {
+                                // Jalali date / 24h clock: Latin digits, left to right.
+                                $class = 'ltr num';
+                            } elseif ($isNum($column)) {
+                                $class = 'num';
                             }
                             ?>
-                            <td class="<?= $isNum($column) || $isDate($key) ? 'num' : '' ?>">
+                            <td class="<?= $class ?>">
                                 <?= $e($text) ?>
                             </td>
                         <?php endforeach; ?>

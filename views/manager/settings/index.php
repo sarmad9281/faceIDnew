@@ -117,7 +117,7 @@ $logo = trim((string) ($customer['logo_path'] ?? ''));
                 <table class="mini-table">
                     <tr><td>پلن</td><td><?= $e($plan['plan_name'] ?? '—') ?></td></tr>
                     <tr><td>وضعیت</td><td><?= $e(\App\Models\Subscription::effectiveStatus($plan) ?? '—') ?></td></tr>
-                    <tr><td>پایان دوره</td><td><?= $e($plan['ends_at'] ?? '—') ?></td></tr>
+                    <tr><td>پایان دوره</td><td><?= $e(\App\Support\Jalali::date($plan['ends_at'] ?? '')) ?></td></tr>
                     <tr><td>سقف پرسنل</td><td><?= $e($plan['max_employees'] ?? '—') ?></td></tr>
                     <tr><td>سقف دستگاه</td><td><?= $e($plan['max_devices'] ?? '—') ?></td></tr>
                 </table>

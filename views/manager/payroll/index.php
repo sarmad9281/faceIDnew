@@ -161,9 +161,9 @@ $previewOrFrozen = $isFinal ? $items : $preview;
         <?php else: ?>
             <p class="small">
                 دوره انتخابی:
-                <span class="ltr num"><?= $e((string) $period['start_date']) ?></span>
+                <span class="ltr num" title="<?= $e((string) $period['start_date']) ?>"><?= $e(Jalali::date((string) $period['start_date'])) ?></span>
                 تا
-                <span class="ltr num"><?= $e((string) $period['end_date']) ?></span>
+                <span class="ltr num" title="<?= $e((string) $period['end_date']) ?>"><?= $e(Jalali::date((string) $period['end_date'])) ?></span>
                 —
                 <span class="badge <?= $isFinal ? 'badge-warn' : '' ?>"><?= $e($isFinal ? 'قطعی' : 'باز') ?></span>
             </p>

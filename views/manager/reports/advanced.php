@@ -71,11 +71,12 @@ $bar = static function (int $value, int $max) use ($e): string {
         <?php else: ?>
             <div class="table-wrap">
                 <table class="table">
-                    <thead><tr><th>ماه</th><th>کارکرد</th><th>تأخیر</th><th>اضافه‌کاری</th></tr></thead>
+                    <thead><tr><th>ماه (شمسی)</th><th>کارکرد</th><th>تأخیر</th><th>اضافه‌کاری</th></tr></thead>
                     <tbody>
                     <?php foreach ($trend as $row): ?>
                         <tr>
-                            <td class="ltr num"><?= $e((string) $row['month']) ?></td>
+                            <?php /* "2025-10" is a Gregorian bucket; it is labelled with the Jalali month(s) it covers. */ ?>
+                            <td class="ltr num"><?= $e(Jalali::monthLabel((string) $row['month'])) ?></td>
                             <td><?= $bar((int) $row['work_minutes'], $max($trend, 'work_minutes')) ?></td>
                             <td><?= $bar((int) $row['late_minutes'], $max($trend, 'late_minutes')) ?></td>
                             <td><?= $bar((int) $row['overtime_minutes'], $max($trend, 'overtime_minutes')) ?></td>
