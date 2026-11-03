@@ -93,7 +93,10 @@ async function scenario(scope) {
   assert(precached.includes("./device"));
   assert(precached.includes("./device/offline"));
   assert(!precached.some((item) => item.includes("/assets/models/")), "models must not block install");
+  for (const clip of ['entry', 'exit', 'error']) assert(precached.includes('./assets/audio/' + clip + '.mp3?v=1.0.9'));
   const oldCache = await cacheApi.open("sarmad-kiosk-v7");
+  const newerCache = await cacheApi.open("sarmad-kiosk-v8");
+  await newerCache.put("./assets/models/face-api-1.0.0/tiny_face_detector_model-shard1", {body: "v8-model", ok: true, clone() { return this; }});
   await oldCache.put("./assets/models/face-api-1.0.0/face_recognition_model-shard1", {body: "old-model", ok: true, clone() { return this; }});
   listeners.activate({
     waitUntil(p) {
@@ -103,6 +106,8 @@ async function scenario(scope) {
   await pending;
   assert(!stores.has("sarmad-kiosk-v6"));
   assert(stores.has("other-application"));
+  assert(stores.has("sarmad-kiosk-v7"));
+  assert(stores.has("sarmad-kiosk-v8"));
   async function request(
     route,
     mode = "navigate",
@@ -121,21 +126,23 @@ async function scenario(scope) {
   // The core installs without invoking the network for any model.
   listeners.message({data: "CACHE_MODELS", waitUntil(p) {pending = p;}});
   await pending;
-  assert(stores.get("sarmad-kiosk-v8").has(resolve("./assets/models/face-api-1.0.0/face_recognition_model-shard1")));
+  assert(stores.get("sarmad-kiosk-v9").has(resolve("./assets/models/face-api-1.0.0/face_recognition_model-shard1")));
+  assert.equal(stores.get("sarmad-kiosk-v9").get(resolve("./assets/models/face-api-1.0.0/tiny_face_detector_model-shard1")).body, "v8-model");
   const base = new URL(scope).pathname;
   assert.equal((await request(base + "device")).body, "network");
   online = false;
   assert.equal((await request(base + "device?x=1")).body, "./device");
   assert.equal((await request(base + "device/")).body, "./device");
+  for (const clip of ["entry", "exit", "error"]) assert.equal((await request(base + "assets/audio/" + clip + ".mp3?v=1.0.9", "cors")).body, "./assets/audio/" + clip + ".mp3?v=1.0.9");
   assert.equal(await request(base), null);
   assert.equal(await request(base + "owner"), null);
   assert.equal(await request(base + "devices"), null);
   assert.equal(await request(base + "api/v1/device/config", "cors"), null);
   assert.equal(await request(base + "device", "navigate", "POST"), null);
   assert.equal(
-    (await request(base + "assets/js/device.js?v=1.0.8&v=1.0.8", "no-cors"))
+    (await request(base + "assets/js/device.js?v=1.0.9&v=1.0.9", "no-cors"))
       .body,
-    "./assets/js/device.js",
+    "./assets/js/device.js?v=1.0.9",
   );
   assert.equal(
     (
@@ -146,7 +153,7 @@ async function scenario(scope) {
     ).body,
     "old-model",
   );
-  const cache = stores.get("sarmad-kiosk-v8");
+  const cache = stores.get("sarmad-kiosk-v9");
   cache.delete(resolve("./device"));
   assert.equal((await request(base + "device")).body, "./device/offline");
   cache.delete(resolve("./device/offline"));

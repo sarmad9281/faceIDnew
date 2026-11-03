@@ -750,8 +750,9 @@ final class AttendanceEngine
                     : $this->recordExit($device, $eventPayload))
                 : $this->recordOfflineEvent($device, $eventPayload, $type);
 
-            $duplicate = $outcome['ok'] && !empty($outcome['data']['duplicate']);
-            $status    = $outcome['ok'] ? ($duplicate ? 'DUPLICATE' : 'ACCEPTED') : 'REJECTED';
+            $duplicate = ($outcome['ok'] && !empty($outcome['data']['duplicate']))
+                || (!$outcome['ok'] && in_array($outcome['code'], [self::CODE_ENTRY_OPEN, self::CODE_DUPLICATE], true));
+            $status = $duplicate ? 'DUPLICATE' : ($outcome['ok'] ? 'ACCEPTED' : 'REJECTED');
 
             if ($duplicate) {
                 $results['duplicate']++;
@@ -1347,6 +1348,16 @@ final class AttendanceEngine
         $sql .= ' ORDER BY r.`entry_at` ASC LIMIT ' . max(1, min(500, $limit));
 
         return Database::select($sql, $params);
+    }
+
+    /** Count all open sessions (including sessions opened on earlier dates). */
+    public function countCurrentlyInside(int $customerId, int $branchId = 0): int
+    {
+        $sql = 'SELECT COUNT(*) FROM `' . Database::table('attendance_records') . '`'
+            . ' WHERE `customer_id` = ? AND `open_key` IS NOT NULL AND `deleted_at` IS NULL AND `voided_at` IS NULL';
+        $params = [$customerId];
+        if ($branchId > 0) { $sql .= ' AND `branch_id` = ?'; $params[] = $branchId; }
+        return (int) Database::scalar($sql, $params);
     }
 
     /** Dashboard numbers of one date - real rows, never estimates. */

@@ -237,6 +237,9 @@
                 return write(items) ? row : null;
             },
 
+            // Explicit destructive action: callers must confirm with the operator.
+            clearQueue: function () { return write([]) !== null; },
+
             count: function () {
                 return read().length;
             },

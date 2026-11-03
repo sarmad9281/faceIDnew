@@ -279,6 +279,9 @@ return static function (Router $router): void {
     $router->get('/manager/attendance/live', [ManagerAttendanceController::class, 'live'],
         ['auth', 'role:manager,supervisor,owner', 'tenant:single', 'feature:attendance'], 'manager.attendance.live');
 
+    $router->get('/manager/attendance/live-presence', [ManagerAttendanceController::class, 'live'],
+        ['auth', 'role:manager,supervisor,owner', 'tenant:single', 'feature:attendance'], 'manager.attendance.live-presence');
+
     $router->post('/manager/attendance/manual', [ManagerAttendanceController::class, 'manual'],
         ['auth', 'role:manager,owner', 'tenant:single', 'feature:attendance', 'csrf'], 'manager.attendance.manual');
 

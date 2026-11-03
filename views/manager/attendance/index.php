@@ -24,6 +24,8 @@ use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Support\Jalali;
 
+$insideTotal = $insideTotal ?? count($inside);
+
 $badgeFor = static function (string $status): string {
     switch ($status) {
         case 'present': return 'badge-ok';
@@ -62,7 +64,7 @@ $flagList = static function ($flagsRaw) use ($flags): array {
             — ساعت سرور: <span class="ltr num"><?= $e($serverTime) ?></span>
         </p>
     </div>
-    <span class="m-chip" id="inside-chip">الان در مجموعه: <?= $e($summary['currently_inside'] ?? 0) ?> نفر</span>
+    <span class="m-chip" id="inside-chip">الان در مجموعه: <?= $e($insideTotal ?? 0) ?> نفر</span>
 </div>
 
 <?php if (!empty($error)): ?>
@@ -81,7 +83,7 @@ $flagList = static function ($flagsRaw) use ($flags): array {
     </article>
     <article class="kpi">
         <div class="kpi-top"><span class="kpi-label">الان در مجموعه</span></div>
-        <div class="kpi-value num" id="kpi-inside"><?= $e($summary['currently_inside'] ?? 0) ?></div>
+        <div class="kpi-value num" id="kpi-inside"><?= $e($insideTotal ?? 0) ?></div>
         <div class="kpi-foot">ورود بدون خروج</div>
     </article>
     <article class="kpi kpi-ok">
@@ -106,12 +108,14 @@ $flagList = static function ($flagsRaw) use ($flags): array {
     </article>
 </section>
 
-<section class="card" id="inside-card">
+<section class="card" id="inside-card" data-live-url="<?= $e($url('/manager/attendance/live-presence')) ?>" data-branch="<?= (int) $filters['branch_id'] ?>">
     <div class="card-head">
         <h2>الان در مجموعه</h2>
         <span class="muted small">به‌روزرسانی خودکار هر ۳۰ ثانیه — بر پایه رکوردهای بدون خروج</span>
+        <button type="button" class="btn btn-ghost btn-sm" id="inside-refresh">به‌روزرسانی</button>
     </div>
 
+    <p class="muted small" id="inside-update-status" role="status"><?= count($inside) < $insideTotal ? 'نمایش ۵۰۰ مورد نخست' : '' ?></p>
     <div class="list" id="inside-list">
         <?php if ($inside === []): ?>
             <div class="empty" id="inside-empty">
@@ -125,10 +129,11 @@ $flagList = static function ($flagsRaw) use ($flags): array {
                     <div>
                         <strong><?= $e(trim(((string) $row['first_name']) . ' ' . ((string) $row['last_name']))) ?></strong>
                         <small class="ltr"><?= $e($row['employee_code'] ?? '') ?></small>
+                        <small><?= $e($row['branch_name'] ?? '') ?></small>
                     </div>
                     <div class="muted small">
                         ورود: <span class="ltr num"><?= $e(substr((string) $row['entry_at'], 11, 5)) ?></span>
-                        — مدت حضور: <span class="num"><?= $e(AttendanceRecord::minutesLabel((int) $row['inside_minutes'], false)) ?></span>
+                        — مدت حضور: <span class="num"><?= $e(intdiv(max(0, (int) $row['inside_minutes']), 60)) ?> ساعت و <?= $e(max(0, (int) $row['inside_minutes']) % 60) ?> دقیقه</span>
                     </div>
                     <div class="row-actions">
                         <?php if ((string) $row['source'] === 'device_offline'): ?>
@@ -258,6 +263,7 @@ $flagList = static function ($flagsRaw) use ($flags): array {
                         <td>
                             <?= $e(trim(((string) ($row['first_name'] ?? '')) . ' ' . ((string) ($row['last_name'] ?? '')))) ?>
                             <small class="ltr"><?= $e($row['employee_code'] ?? '') ?></small>
+                        <small><?= $e($row['branch_name'] ?? '') ?></small>
                         </td>
                         <td><?= $e(Jalali::date($row['attendance_date'] ?? '')) ?></td>
                         <td class="ltr num"><?= $e(substr((string) ($row['entry_at'] ?? ''), 11, 5) ?: '—') ?></td>
@@ -373,68 +379,6 @@ $flagList = static function ($flagsRaw) use ($flags): array {
     (function () {
         'use strict';
 
-        // ---- «الان در مجموعه» auto refresh (same tenant, session guarded) ----
-        var list = document.getElementById('inside-list');
-        var chip = document.getElementById('inside-chip');
-        var kpi = document.getElementById('kpi-inside');
-        var branch = <?= (int) $filters['branch_id'] ?>;
-
-        function label(minutes) {
-            minutes = parseInt(minutes, 10) || 0;
-            var h = Math.floor(minutes / 60);
-            var m = minutes % 60;
-            return h + ':' + (m < 10 ? '0' + m : m);
-        }
-
-        function escapeHtml(value) {
-            return String(value).replace(/[&<>"']/g, function (c) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-            });
-        }
-
-        function refresh() {
-            if (!list || typeof window.fetch !== 'function') {
-                return;
-            }
-
-            fetch('<?= $e($url('/manager/attendance/live')) ?>?branch_id=' + branch, {
-                headers: { 'Accept': 'application/json' }
-            }).then(function (response) {
-                return response.ok ? response.json() : null;
-            }).then(function (payload) {
-                if (!payload || !payload.success) {
-                    return;
-                }
-
-                var inside = payload.data.inside || [];
-                var count = payload.meta.count || 0;
-
-                if (chip) { chip.textContent = 'الان در مجموعه: ' + count + ' نفر'; }
-                if (kpi) { kpi.textContent = count; }
-
-                if (!inside.length) {
-                    list.innerHTML = '<div class="empty"><div class="empty-art">🕒</div>'
-                        + '<strong>در این لحظه کسی داخل مجموعه نیست</strong>'
-                        + 'به‌محض ثبت ورود، نام و مدت حضور در همین بخش نمایش داده می‌شود.</div>';
-                    return;
-                }
-
-                list.innerHTML = inside.map(function (row) {
-                    return '<div class="list-row"><div><strong>' + escapeHtml(row.name) + '</strong>'
-                        + '<small class="ltr"></small></div>'
-                        + '<div class="muted small">ورود: <span class="ltr num">' + escapeHtml(row.entry_time) + '</span>'
-                        + ' — مدت حضور: <span class="num">' + escapeHtml(label(row.inside_minutes)) + '</span></div>'
-                        + '<div class="row-actions">'
-                        + (row.is_offline ? '<span class="badge badge-warn">آفلاین</span>' : '')
-                        + '</div></div>';
-                }).join('');
-            }).catch(function () { /* offline: keep the server rendered list */ });
-        }
-
-        if (list) {
-            window.setInterval(refresh, 30000);
-        }
-
         // ---- «اصلاح» fills the manual form with the row it belongs to ----
         var recordId = document.getElementById('manual-record-id');
         var employee = document.getElementById('manual-employee');
@@ -459,3 +403,5 @@ $flagList = static function ($flagsRaw) use ($flags): array {
         });
     }());
 </script>
+
+<script src="<?= $e($asset('/js/manager-attendance.js')) ?>&v=1.0.9" defer></script>

@@ -120,8 +120,6 @@ final class TelegramController
             $values[$key] = Input::bool($request->input($key, '0')) === 1 ? '1' : '0';
         }
 
-        $changed = CustomerSetting::putMany($customerId, $values, (int) (Session::userId() ?? 0));
-
         /* ---------- stage 7 engine settings ---------- */
         $engineInput = [
             'chat_id'           => $chatId,
@@ -134,6 +132,11 @@ final class TelegramController
             'is_active'         => $request->input('is_active', $request->input('telegram_is_active', '0')),
         ];
 
+        foreach (['api_base_url', 'proxy_url'] as $field) {
+            $value = $request->input($field, null);
+            if ($value !== null) $engineInput[$field] = trim((string) $value);
+        }
+
         $token = trim((string) $request->input('bot_token', ''));
 
         if ($token !== '') {
@@ -141,6 +144,12 @@ final class TelegramController
         }
 
         $result = (new TelegramService())->saveSettings($this->actor(), $customerId, $engineInput);
+
+        if (!$result['ok']) {
+            Session::flash('error', $result['message']);
+            return Redirect::response('/manager/telegram');
+        }
+        $changed = CustomerSetting::putMany($customerId, $values, (int) (Session::userId() ?? 0));
 
         AuditLog::record('telegram.settings.update', 'success', 'تنظیمات ربات تلگرام مشتری ذخیره شد.', [
             'changed_keys' => $changed,
