@@ -136,6 +136,22 @@ final class TelegramService
             'is_active'         => $this->flag($input['is_active'] ?? ($existing['is_active'] ?? 0)),
         ];
 
+        // Optional transport settings require the owner-run schema migration.
+        foreach (['api_base_url', 'proxy_url'] as $field) {
+            if (!array_key_exists($field, $input)) continue;
+            $value = trim((string) $input[$field]);
+            if ($value !== '' && !$this->validTransportUrl($value, $field === 'proxy_url')) {
+                return ['ok' => false, 'code' => 'TELEGRAM_TRANSPORT_INVALID', 'message' => 'آدرس درگاه یا پروکسی معتبر نیست؛ از آدرس عمومی بدون نام کاربری و رمز عبور استفاده کنید.', 'data' => []];
+            }
+            if (!array_key_exists($field, $existing)) {
+                if ($value === '') continue;
+                if ((int) ($existing['id'] ?? 0) > 0 || !(new MigrationService())->columnExists('telegram_settings', $field)) {
+                    return ['ok' => false, 'code' => 'MIGRATION_REQUIRED', 'message' => 'ابتدا به‌روزرسانی ساختار پایگاه داده را از پنل مالک اجرا کنید.', 'data' => []];
+                }
+            }
+            $data[$field] = $value !== '' ? $value : null;
+        }
+
         // The token is only replaced when a NEW value is typed; an empty field
         // means "keep the stored token", so the panel never has to echo it back.
         $token = trim((string) ($input['bot_token'] ?? ''));
@@ -392,7 +408,7 @@ final class TelegramService
         }
 
         $attempt = (int) $row['attempts'] + 1;
-        $answer  = $this->send($token, $chatId, $text);
+        $answer  = $this->send($token, $chatId, $text, $settings);
 
         if ($answer['ok']) {
             Database::update(Database::table('telegram_queue'), [
@@ -458,9 +474,15 @@ final class TelegramService
     /**
      * @return array{ok:bool,status:int,message_id:?string,error:?string,error_code:?string}
      */
-    public function send(string $token, string $chatId, string $text): array
+    public function send(string $token, string $chatId, string $text, array $settings = []): array
     {
-        $url  = 'https://api.telegram.org/bot' . $token . '/sendMessage';
+        $base = trim((string) ($settings['api_base_url'] ?? '')) ?: trim((string) Config::get('telegram.api_base_url', 'https://api.telegram.org'));
+        $base = $base !== '' ? $base : 'https://api.telegram.org';
+        $proxy = trim((string) ($settings['proxy_url'] ?? '')) ?: trim((string) Config::get('telegram.proxy', ''));
+        if (!$this->validTransportUrl($base, false) || ($proxy !== '' && !$this->validTransportUrl($proxy, true))) {
+            return ['ok' => false, 'status' => 0, 'message_id' => null, 'error' => 'Invalid public gateway or proxy URL', 'error_code' => 'TELEGRAM_TRANSPORT_INVALID'];
+        }
+        $url = rtrim($base, '/') . '/bot' . $token . '/sendMessage';
         $body = [
             'chat_id'    => $chatId,
             'text'       => $text,
@@ -469,9 +491,9 @@ final class TelegramService
         ];
 
         if ($this->transport !== null) {
-            $answer = ($this->transport)($url, $body);
+            $answer = ($this->transport)($url, $body, $proxy);
         } else {
-            $answer = $this->curlPost($url, $body);
+            $answer = $this->curlPost($url, $body, $proxy);
         }
 
         $decoded = json_decode((string) ($answer['body'] ?? ''), true);
@@ -496,9 +518,10 @@ final class TelegramService
             $description = (string) ($answer['error'] ?? 'ارتباط با تلگرام برقرار نشد.');
         }
 
-        $code = 'TELEGRAM_HTTP_' . (int) ($answer['status'] ?? 0);
+        $networkError = !empty($answer['network_error']) || ((int) ($answer['status'] ?? 0) === 0 && !empty($answer['error']));
+        $code = $networkError ? 'TELEGRAM_NETWORK_ERROR' : 'TELEGRAM_HTTP_' . (int) ($answer['status'] ?? 0);
 
-        if (is_array($decoded) && isset($decoded['error_code'])) {
+        if (!$networkError && is_array($decoded) && isset($decoded['error_code'])) {
             $code = 'TELEGRAM_' . (int) $decoded['error_code'];
         }
 
@@ -506,7 +529,7 @@ final class TelegramService
             'ok'         => false,
             'status'     => (int) ($answer['status'] ?? 0),
             'message_id' => null,
-            'error'      => $this->redact(substr($description, 0, 200)),
+            'error'      => $this->redact($description),
             'error_code' => $code,
         ];
     }
@@ -515,8 +538,36 @@ final class TelegramService
      * @param array<string,mixed> $body
      * @return array{ok:bool,status:int,body:string,error:?string}
      */
-    private function curlPost(string $url, array $body): array
+    private function curlPost(string $url, array $body, string $proxy = ''): array
     {
+        if (!function_exists('curl_init')) return ['ok' => false, 'status' => 0, 'body' => '', 'error' => 'PHP cURL extension is not installed'];
+        // Refuse internal addresses on each request. Pin resolved addresses for
+        // the directly connected endpoint to limit DNS rebinding. When using a
+        // proxy, that trusted proxy resolves the gateway itself.
+        if ($proxy !== '') {
+            $gatewayHost = trim((string) parse_url($url, PHP_URL_HOST), '[]');
+            // For a custom gateway, reject internal DNS destinations even
+            // when the proxy performs remote DNS. The proxy must be trusted:
+            // it ultimately controls DNS and sees the encrypted connection.
+            if (strtolower($gatewayHost) !== 'api.telegram.org') {
+                $gatewayIps = filter_var($gatewayHost, FILTER_VALIDATE_IP) ? [$gatewayHost] : (gethostbynamel($gatewayHost) ?: []);
+                if ($gatewayIps === []) return ['ok' => false, 'status' => 0, 'body' => '', 'error' => 'Could not resolve gateway host'];
+                foreach ($gatewayIps as $ip) {
+                    if (!$this->publicIp($ip)) return ['ok' => false, 'status' => 0, 'body' => '', 'error' => 'Gateway resolves to a non-public address'];
+                }
+            }
+        }
+        $connected = $proxy !== '' ? $proxy : $url;
+        $parts = parse_url($connected);
+        $host = (string) ($parts['host'] ?? '');
+        $host = trim($host, '[]');
+        $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (gethostbynamel($host) ?: []);
+        if ($ips === []) return ['ok' => false, 'status' => 0, 'body' => '', 'error' => 'Could not resolve gateway or proxy host'];
+        foreach ($ips as $ip) {
+            if (!$this->publicIp($ip)) return ['ok' => false, 'status' => 0, 'body' => '', 'error' => 'Gateway or proxy resolves to a non-public address'];
+        }
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $port = (int) ($parts['port'] ?? ($scheme === 'https' ? 443 : ($scheme === 'http' ? 80 : 1080)));
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
@@ -525,8 +576,20 @@ final class TelegramService
             CURLOPT_TIMEOUT        => 10,
             CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_FOLLOWLOCATION => false,
         ]);
 
+        if (!filter_var($host, FILTER_VALIDATE_IP)) {
+            curl_setopt($ch, CURLOPT_RESOLVE, [$host . ':' . $port . ':' . implode(',', $ips)]);
+        }
+        if ($proxy !== '') {
+            $proxyScheme = strtolower((string) parse_url($proxy, PHP_URL_SCHEME));
+            // socks5h forces DNS resolution at the proxy (socks5:// alone
+            // can override CURLOPT_PROXYTYPE and resolve on the Iranian host).
+            $curlProxy = $proxyScheme === 'socks5' ? preg_replace('#^socks5://#i', 'socks5h://', $proxy) : $proxy;
+            curl_setopt($ch, CURLOPT_PROXY, $curlProxy);
+            curl_setopt($ch, CURLOPT_PROXYTYPE, $proxyScheme === 'socks5' ? CURLPROXY_SOCKS5_HOSTNAME : CURLPROXY_HTTP);
+        }
         $response = curl_exec($ch);
         $status   = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $error    = curl_error($ch);
@@ -535,10 +598,30 @@ final class TelegramService
         if ($response === false) {
             Logger::channel('telegram')->warning('Telegram call failed', ['error' => $this->redact($error)]);
 
-            return ['ok' => false, 'status' => $status, 'body' => '', 'error' => $this->redact($error)];
+            return ['ok' => false, 'status' => $status, 'body' => '', 'error' => $this->redact($error), 'network_error' => true];
         }
 
         return ['ok' => $status >= 200 && $status < 300, 'status' => $status, 'body' => (string) $response, 'error' => null];
+    }
+
+    private function publicIp(string $ip): bool
+    {
+        return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
+    }
+
+    /** Accept public HTTPS gateways, or HTTP/SOCKS5 proxies, without secrets. */
+    private function validTransportUrl(string $url, bool $proxy): bool
+    {
+        if (strlen($url) > 255 || preg_match('/[\x00-\x20\x7f]/', $url)) return false;
+        $p = parse_url($url);
+        if (!is_array($p) || empty($p['host']) || isset($p['user']) || isset($p['pass']) || isset($p['query']) || isset($p['fragment'])) return false;
+        $scheme = strtolower((string) ($p['scheme'] ?? ''));
+        if (!in_array($scheme, $proxy ? ['http', 'socks5'] : ['https'], true)) return false;
+        if ($proxy && !empty($p['path']) && $p['path'] !== '/') return false;
+        $host = strtolower(trim((string) $p['host'], '[]'));
+        if ($host === 'localhost' || str_ends_with($host, '.localhost') || str_ends_with($host, '.local')) return false;
+        if (filter_var($host, FILTER_VALIDATE_IP)) return $this->publicIp($host);
+        return preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i', $host) === 1;
     }
 
     /**
@@ -549,7 +632,9 @@ final class TelegramService
     {
         $redacted = preg_replace('/\d{6,}:[A-Za-z0-9_\-]{20,}/', '[REDACTED-BOT-TOKEN]', $text) ?? $text;
 
-        return substr($redacted, 0, 200);
+        $redacted = substr($redacted, 0, 200);
+        while ($redacted !== '' && preg_match('//u', $redacted) !== 1) $redacted = substr($redacted, 0, -1);
+        return $redacted;
     }
 
     /* ==================================================================
@@ -643,7 +728,7 @@ final class TelegramService
             return ['ok' => false, 'code' => 'TELEGRAM_NOT_CONFIGURED', 'message' => 'توکن یا Chat ID تنظیم نشده است.'];
         }
 
-        $answer = $this->send($token, $chatId, $text !== '' ? $text : 'پیام آزمایشی SARMAD Attendance');
+        $answer = $this->send($token, $chatId, $text !== '' ? $text : 'پیام آزمایشی SARMAD Attendance', $settings);
 
         if ($answer['ok']) {
             Database::update(Database::table('telegram_settings'), [
@@ -663,7 +748,9 @@ final class TelegramService
 
         $this->log($customerId, 'telegram.test', $chatId, 'failed', 0, 1, $answer['error_code'], $answer['error']);
 
-        return ['ok' => false, 'code' => (string) $answer['error_code'], 'message' => 'ارسال آزمایشی ناموفق بود: ' . $answer['error']];
+        return ['ok' => false, 'code' => (string) $answer['error_code'], 'message' => $answer['error_code'] === 'TELEGRAM_NETWORK_ERROR' || $answer['status'] === 0
+            ? 'خطا در برقراری ارتباط با سرور تلگرام: ' . $answer['error'] . '. در صورتی که هاست در ایران است، نیاز به تنظیم آدرس پروکسی معکوس (Reverse Proxy) یا پروکسی سرور دارید.'
+            : 'ارسال آزمایشی ناموفق بود: ' . $answer['error']];
     }
 
     private function cleanChatId($value): string

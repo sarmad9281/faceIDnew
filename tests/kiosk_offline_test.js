@@ -35,7 +35,7 @@ const gallery = {
     },
   ],
 };
-let intervals, dom, win;
+let intervals, dom, win, played, audioFailure, beeps;
 async function boot() {
   const view = src("views/device/kiosk.php").replace(/<\?php[\s\S]*?\?>/g, "");
   dom = new JSDOM(
@@ -43,6 +43,9 @@ async function boot() {
     { url: "https://example.test/device", runScripts: "outside-only" },
   );
   win = dom.window;
+  played = []; audioFailure = false; beeps = 0;
+  win.Audio = class { constructor() { this.src = ''; this.muted = false; } play() { played.push({src:this.src, muted:this.muted}); return audioFailure && !this.muted ? Promise.reject(Error('autoplay denied')) : Promise.resolve(); } pause() {} };
+  win.AudioContext = class { constructor() { this.destination = {}; this.currentTime = 0; } createOscillator() { return {frequency:{value:0,setValueAtTime(){}},connect(){},start(){beeps++},stop(){}}; } createGain() { return {gain:{value:0},connect(){}}; } close(){} };
   intervals = new Map();
   let n = 0;
   Object.defineProperty(win, "indexedDB", { value: indexedDB });
@@ -163,6 +166,7 @@ async function punch(id) {
   );
   assert.equal(win.document.getElementById("k-action-entry").disabled, false);
   assert(win.document.getElementById("k-clock-time").textContent.includes(":"));
+  win.SARMAD_KIOSK_STATE.settings.success_sound = true;
   await punch("k-action-entry");
   assert.equal(
     win.document.getElementById("kiosk").getAttribute("data-state"),
@@ -185,6 +189,7 @@ async function punch(id) {
     JSON.parse(win.localStorage.getItem("sarmad.device.queue"))[0].event_type,
     "entry",
   );
+  assert(played.some(x => !x.muted && x.src.includes("/entry.mp3")));
   win.document.getElementById("kiosk-success").click();
   await punch("k-action-exit");
   assert.equal(
@@ -192,6 +197,7 @@ async function punch(id) {
     "exit",
   );
   win.document.getElementById("kiosk-success").click();
+  assert(played.some(x => !x.muted && x.src.includes("/exit.mp3")));
   detectMode = "unknown";
   await punch("k-action-entry");
   assert.equal(
@@ -202,6 +208,21 @@ async function punch(id) {
     JSON.parse(win.localStorage.getItem("sarmad.device.queue")).length,
     2,
   );
+  assert(played.some(x => !x.muted && x.src.includes("/error.mp3")));
+  win.document.getElementById('k-error-close').click();
+  win.SARMAD_KIOSK_STATE.settings.success_sound = false;
+  const countPlayed = played.length;
+  await punch('k-action-entry');
+  assert.equal(played.length, countPlayed, 'sound toggle disables all audio');
+  win.document.getElementById('k-error-close').click();
+  win.SARMAD_KIOSK_STATE.settings.success_sound = true;
+  audioFailure = true;
+  await punch('k-action-entry');
+  assert.equal(beeps, 1, 'blocked voice falls back to one beep');
+  assert.equal(win.document.getElementById('k-queue-tools').hidden, false);
+  win.confirm = () => false;
+  win.document.getElementById('k-queue-clear').click();
+  assert.equal(win.SARMAD_KIOSK_HELPERS.queue.count(), 2);
   detectMode = "matched";
   persist();
   await boot();
@@ -222,6 +243,12 @@ async function punch(id) {
     0,
   );
   assert(calls.some((x) => x.url.endsWith("/attendance/sync")));
+  assert.equal(win.document.getElementById('k-queue-tools').hidden, true);
+  win.SARMAD_KIOSK_HELPERS.queue.push({local_event_id:'clear-test', employee_id:42});
+  win.confirm = () => true;
+  win.document.getElementById('k-queue-clear').click();
+  assert.equal(win.SARMAD_KIOSK_HELPERS.queue.count(), 0);
+  assert.equal(win.document.getElementById('k-queue-tools').hidden, true);
   persist();
   // A network failure, even with navigator.onLine=true, restores the cache.
   networkAvailable = false;

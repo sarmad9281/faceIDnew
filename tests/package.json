@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "offline": "node kiosk_offline_test.js && node service_worker_offline_test.js && node kiosk_mobile_css_test.js"
+    "offline": "node kiosk_offline_test.js && node service_worker_offline_test.js && node kiosk_mobile_css_test.js && node live_presence_test.js && node queue_clear_test.js"
   },
   "devDependencies": {
     "fake-indexeddb": "6.2.4",

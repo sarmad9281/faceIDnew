@@ -86,6 +86,9 @@
         statusDot: document.getElementById('k-status-dot'),
         statusText: document.getElementById('k-status-text'),
         queueCount: document.getElementById('k-queue-count'),
+        queueTools: document.getElementById('k-queue-tools'),
+        queueSettingsCount: document.getElementById('k-queue-settings-count'),
+        queueClear: document.getElementById('k-queue-clear'),
         lastSeen: document.getElementById('k-last-seen'),
         entryBtn: document.getElementById('k-action-entry'),
         exitBtn: document.getElementById('k-action-exit'),
@@ -603,6 +606,8 @@
     function renderQueue() {
         var count = queue.count();
         text(el.queueCount, count > 0 ? 'در صف ارسال: ' + count : '');
+        text(el.queueSettingsCount, count);
+        if (el.queueTools) el.queueTools.hidden = count === 0;
     }
 
     /* -----------------------------------------------------------------
@@ -862,7 +867,7 @@
         text(el.errorKind, kind);
         text(el.errorTitle, title);
         text(el.errorMessage, message);
-        playTone(false);
+        playVoice(false);
 
         if (autoClose) {
             window.setTimeout(function () {
@@ -970,7 +975,7 @@
 
         text(el.successTitle, payload.title || 'ورود با موفقیت ثبت شد');
         text(el.successMessage, payload.message || '');
-        playTone(true);
+        playVoice(true, state.action);
 
         window.clearTimeout(state.successTimer);
         state.successTimer = window.setTimeout(function () {
@@ -983,6 +988,44 @@
     /* -----------------------------------------------------------------
      * Sound (WebAudio, no asset needed - works offline)
      * ----------------------------------------------------------------*/
+    var voiceAudio = null;
+    var voiceGeneration = 0;
+    function audioPath(name) {
+        return SETUP.base.replace(/\/?$/, '/') + 'assets/audio/' + name + '.mp3?v=1.0.9';
+    }
+    // Unlock on the employee's tap (some mobile browsers otherwise block an
+    // asynchronous recognition result). Failure remains non-fatal.
+    function unlockVoice() {
+        if (!state.settings || !state.settings.success_sound) return;
+        try {
+            if (!voiceAudio) voiceAudio = new window.Audio();
+            var generation = ++voiceGeneration;
+            voiceAudio.onerror = null;
+            voiceAudio.src = audioPath('entry');
+            voiceAudio.muted = true;
+            var playing = voiceAudio.play();
+            if (playing && typeof playing.then === 'function') playing.then(function () {
+                if (generation === voiceGeneration) { voiceAudio.pause(); voiceAudio.currentTime = 0; voiceAudio.muted = false; }
+            }).catch(function () { if (generation === voiceGeneration) voiceAudio.muted = false; });
+        } catch (error) { /* audio will fall back when the result is shown */ }
+    }
+    function playVoice(success, action) {
+        if (!state.settings || !state.settings.success_sound) return;
+        var path = success ? (action === 'exit' ? 'exit' : 'entry') : 'error';
+        try {
+            if (!voiceAudio) voiceAudio = new window.Audio();
+            ++voiceGeneration;
+            voiceAudio.pause();
+            voiceAudio.muted = false;
+            voiceAudio.src = audioPath(path);
+            var failed = false;
+            function fallback() { if (!failed) { failed = true; playTone(success); } }
+            voiceAudio.onerror = fallback;
+            var played = voiceAudio.play();
+            if (played && typeof played.catch === 'function') played.catch(fallback);
+        } catch (error) { playTone(success); }
+    }
+
     function playTone(success) {
         if (!state.settings || !state.settings.success_sound) {
             return;
@@ -2340,6 +2383,7 @@
                     button.classList.remove('is-pressed');
                 }, 160);
 
+                unlockVoice();
                 openCamera(action);
             });
         });
@@ -2428,6 +2472,16 @@
 
         if (el.settingsButton) {
             el.settingsButton.addEventListener('click', openDrawer);
+        }
+
+        if (el.queueClear) {
+            el.queueClear.addEventListener('click', function () {
+                if (!queue.count() || !window.confirm('همه ترددهای ارسال‌نشده برای همیشه حذف می‌شوند. ادامه می‌دهید؟')) return;
+                if (!queue.clearQueue()) {
+                    window.alert('پاک‌سازی صف انجام نشد؛ حافظه دستگاه در دسترس نیست.');
+                }
+                renderQueue();
+            });
         }
 
         if (el.setSound) {
