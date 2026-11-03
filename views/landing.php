@@ -19,16 +19,25 @@ $title = isset($title) && is_string($title) && $title !== ''
 
 $contact = array_merge([
     'phoneDisplay' => '',
-    'phoneHref' => '#consult',
+    'phoneHref' => '',
+    'instagramUrl' => '',
+    'instagramHref' => '',
+    'instagramLabel' => '',
     'whatsappUrl' => '',
-    'whatsappHref' => '#consult',
+    'whatsappHref' => '',
     'telegramUrl' => '',
-    'telegramHref' => '#consult',
+    'telegramHref' => '',
+    'telegramLabel' => '',
 ], isset($contact) && is_array($contact) ? $contact : []);
 
-$hasWhatsapp = (string) $contact['whatsappUrl'] !== '';
-$hasTelegram = (string) $contact['telegramUrl'] !== '';
+$hasPhone = (string) $contact['phoneHref'] !== '';
+$hasInstagram = (string) $contact['instagramHref'] !== '';
+$hasWhatsapp = (string) $contact['whatsappHref'] !== '';
+$hasTelegram = (string) $contact['telegramHref'] !== '';
+$hasAnyContact = $hasPhone || $hasInstagram || $hasWhatsapp || $hasTelegram;
 $phoneDisplay = (string) $contact['phoneDisplay'];
+$instagramLabel = (string) $contact['instagramLabel'];
+$telegramLabel = (string) $contact['telegramLabel'];
 ?>
 <!doctype html>
 <html lang="fa" dir="rtl">
@@ -36,7 +45,7 @@ $phoneDisplay = (string) $contact['phoneDisplay'];
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $e($title) ?></title>
-    <meta name="description" content="سامانه حضور و غیاب هوشمند سرمد با تشخیص چهره؛ بدون خرید دستگاه اختصاصی، با هر گوشی یا تبلت، آنلاین و آفلاین، همراه با گزارش‌گیری و اعطای نمایندگی رسمی.">
+    <meta name="description" content="سامانه حضور و غیاب هوشمند سرمد با تشخیص چهره؛ بدون خرید دستگاه اختصاصی و با هر گوشی یا تبلت. کیوسک ثبت تردد هنگام قطعی موقت اینترنت نیز به ثبت ادامه می‌دهد و پس از اتصال مجدد با سرور هم‌گام می‌شود.">
     <meta name="theme-color" content="#040713">
     <meta name="color-scheme" content="dark">
     <meta property="og:type" content="website">
@@ -101,7 +110,7 @@ $phoneDisplay = (string) $contact['phoneDisplay'];
 
             <ul class="hero-proof" aria-label="مزیت‌های کلیدی">
                 <li>راه‌اندازی سریع روی گوشی یا تبلت</li>
-                <li>ثبت آفلاین و هم‌گام‌سازی خودکار</li>
+                <li>ثبت آفلاین در کیوسک و هم‌گام‌سازی خودکار پس از اتصال</li>
                 <li>گزارش، حقوق و خروجی اکسل</li>
             </ul>
         </div>
@@ -182,8 +191,8 @@ $phoneDisplay = (string) $contact['phoneDisplay'];
                 </div>
 
                 <div class="float-card float-offline" aria-hidden="true">
-                    حالت آفلاین فعال
-                    <small>ثبت ادامه دارد؛ هم‌گام‌سازی خودکار</small>
+                    کیوسک در حالت آفلاین
+                    <small>ثبت تردد ادامه دارد؛ هم‌گام‌سازی پس از اتصال مجدد</small>
                 </div>
                 <div class="float-card float-telegram" aria-hidden="true">
                     اعلان تلگرام ارسال شد
@@ -207,7 +216,7 @@ $phoneDisplay = (string) $contact['phoneDisplay'];
         </article>
         <article class="stat-card">
             <div class="stat-value"><span class="counter" data-target="100" data-decimals="0">۱۰۰</span><small>٪</small></div>
-            <p>ابری و طراحی‌شده برای کارکرد بدون قطعی</p>
+            <p>ابری؛ با ثبت محلی تردد در کیوسک هنگام قطعی موقت اینترنت</p>
         </article>
         <article class="stat-card">
             <div class="stat-value"><span class="counter" data-target="0" data-decimals="0">۰</span><small>تومان</small></div>
@@ -230,8 +239,8 @@ $phoneDisplay = (string) $contact['phoneDisplay'];
                 <div class="feature-icon" aria-hidden="true">
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M12 18h.01"></path><path d="M9 7h6"></path></svg>
                 </div>
-                <h3>کیوسک هوشمند آفلاین و آنلاین</h3>
-                <p>گوشی یا تبلت موجود مجموعه به دستگاه حضور و غیاب تبدیل می‌شود؛ در زمان قطعی اینترنت ثبت‌ها در صف امن می‌مانند و پس از اتصال، خودکار هم‌گام می‌شوند.</p>
+                <h3>کیوسک هوشمند، آماده قطعی موقت اینترنت</h3>
+                <p>کیوسک ثبت تردد در زمان قطعی موقت اینترنت همچنان به کار خود ادامه می‌دهد و ترددها را ذخیره می‌کند؛ به محض اتصال مجدد به شبکه، اطلاعات به صورت خودکار با سرور هم‌گام‌سازی می‌شوند.</p>
             </article>
 
             <article class="feature-card">
@@ -285,7 +294,7 @@ $phoneDisplay = (string) $contact['phoneDisplay'];
             </article>
             <article class="step-card" data-step="۰۲">
                 <h3>اسکن با گوشی یا تبلت</h3>
-                <p>دستگاه موجود مجموعه فعال می‌شود و پرسنل فقط با یک نگاه، ورود و خروج خود را آنلاین یا آفلاین ثبت می‌کنند.</p>
+                <p>دستگاه موجود مجموعه فعال می‌شود و پرسنل فقط با یک نگاه، ورود و خروج خود را روی کیوسک ثبت می‌کنند؛ حتی هنگام قطعی موقت اینترنت.</p>
             </article>
             <article class="step-card" data-step="۰۳">
                 <h3>گزارش و تصمیم دقیق</h3>
@@ -310,7 +319,7 @@ $phoneDisplay = (string) $contact['phoneDisplay'];
             </ul>
 
             <div class="hero-actions agency-cta">
-                <a class="btn btn-primary btn-large" href="#consult">ثبت درخواست نمایندگی</a>
+                <a class="btn btn-primary btn-large" href="#contact">درخواست نمایندگی از مسیرهای مستقیم</a>
                 <a class="btn btn-ghost btn-large" href="#contact">گفت‌وگو با تیم سرمد</a>
             </div>
         </div>
@@ -329,103 +338,79 @@ $phoneDisplay = (string) $contact['phoneDisplay'];
     </section>
 
     <!-- ==============================================================
-         Direct contact channels + consultation form
+         Direct contact channels
          ============================================================== -->
     <section class="section wrap" id="contact" aria-labelledby="contact-title">
         <div class="section-head">
             <span class="eyebrow">پل‌های ارتباطی مستقیم</span>
             <h2 id="contact-title">برای خرید، دمو یا اخذ نمایندگی در تماس باشید</h2>
-            <p>سریع‌ترین مسیر را انتخاب کنید؛ یا فرم مشاوره را تکمیل کنید تا پیام شما آماده ارسال شود.</p>
+            <p>بدون فرم داخلی سایت؛ مسیر دلخواه را انتخاب کنید و مستقیماً در همان کانال با تیم سرمد در ارتباط باشید.</p>
         </div>
 
-        <div class="contact-grid">
-            <div class="channel-stack" aria-label="مسیرهای تماس">
-                <a class="channel-card channel-phone" href="<?= $e($contact['phoneHref']) ?>">
-                    <span class="channel-icon" aria-hidden="true">
-                        <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-                    </span>
-                    <span class="channel-copy">
-                        <strong>تماس تلفنی مستقیم</strong>
-                        <span>برای مشاوره فوری خرید و راه‌اندازی</span>
-                        <?php if ($phoneDisplay !== ''): ?>
-                            <span class="channel-value" dir="ltr"><?= $e($phoneDisplay) ?></span>
-                        <?php else: ?>
-                            <span class="channel-value">درخواست تماس از فرم مشاوره</span>
-                        <?php endif; ?>
-                    </span>
-                    <span class="channel-arrow" aria-hidden="true">←</span>
-                </a>
+        <?php if ($hasAnyContact): ?>
+            <div class="contact-grid" aria-label="مسیرهای تماس مستقیم">
+                <?php if ($hasInstagram): ?>
+                    <a class="channel-card channel-instagram" href="<?= $e($contact['instagramHref']) ?>" target="_blank" rel="noopener noreferrer">
+                        <span class="channel-icon" aria-hidden="true">
+                            <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><path d="M17.5 6.5h.01"></path></svg>
+                        </span>
+                        <span class="channel-copy">
+                            <strong>پیج اینستاگرام</strong>
+                            <span>مشاهده معرفی‌ها، نمونه‌ها و تازه‌ترین خبرهای سرمد</span>
+                            <span class="channel-value"<?= $instagramLabel !== '' ? ' dir="ltr"' : '' ?>><?= $e($instagramLabel !== '' ? $instagramLabel : 'مشاهده پیج اینستاگرام') ?></span>
+                        </span>
+                        <span class="channel-arrow" aria-hidden="true">←</span>
+                    </a>
+                <?php endif; ?>
 
-                <a class="channel-card channel-whatsapp" href="<?= $e($contact['whatsappHref']) ?>"<?= $hasWhatsapp ? ' target="_blank" rel="noopener noreferrer"' : '' ?>>
-                    <span class="channel-icon" aria-hidden="true">
-                        <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><path d="M8.5 10.5c.5 2.5 2.5 4.5 5 5l1.5-1.5 2 1c-.5 1.5-1.5 2-3 1.5-3.5-1-6.5-4-7.5-7.5C6 8 6.5 7 8 6.5l1 2z"></path></svg>
-                    </span>
-                    <span class="channel-copy">
-                        <strong>ارتباط مستقیم در واتس‌اپ</strong>
-                        <span>ارسال سریع درخواست دمو، خرید یا نمایندگی</span>
-                        <span class="channel-value"><?= $hasWhatsapp ? 'شروع گفت‌وگوی واتس‌اپ' : 'ثبت درخواست گفت‌وگو' ?></span>
-                    </span>
-                    <span class="channel-arrow" aria-hidden="true">←</span>
-                </a>
+                <?php if ($hasWhatsapp): ?>
+                    <a class="channel-card channel-whatsapp" href="<?= $e($contact['whatsappHref']) ?>" target="_blank" rel="noopener noreferrer">
+                        <span class="channel-icon" aria-hidden="true">
+                            <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><path d="M8.5 10.5c.5 2.5 2.5 4.5 5 5l1.5-1.5 2 1c-.5 1.5-1.5 2-3 1.5-3.5-1-6.5-4-7.5-7.5C6 8 6.5 7 8 6.5l1 2z"></path></svg>
+                        </span>
+                        <span class="channel-copy">
+                            <strong>ارتباط در واتس‌اپ</strong>
+                            <span>گفت‌وگوی مستقیم برای خرید، دمو یا اخذ نمایندگی</span>
+                            <span class="channel-value">شروع گفت‌وگوی واتس‌اپ</span>
+                        </span>
+                        <span class="channel-arrow" aria-hidden="true">←</span>
+                    </a>
+                <?php endif; ?>
 
-                <a class="channel-card channel-telegram" href="<?= $e($contact['telegramHref']) ?>"<?= $hasTelegram ? ' target="_blank" rel="noopener noreferrer"' : '' ?>>
-                    <span class="channel-icon" aria-hidden="true">
-                        <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"></path><path d="M22 2 11 13"></path></svg>
-                    </span>
-                    <span class="channel-copy">
-                        <strong>ارتباط در تلگرام</strong>
-                        <span>پیام مستقیم برای مشاوره و همکاری فروش</span>
-                        <span class="channel-value"><?= $hasTelegram ? 'شروع گفت‌وگوی تلگرام' : 'ثبت درخواست پیام' ?></span>
-                    </span>
-                    <span class="channel-arrow" aria-hidden="true">←</span>
-                </a>
+                <?php if ($hasTelegram): ?>
+                    <a class="channel-card channel-telegram" href="<?= $e($contact['telegramHref']) ?>" target="_blank" rel="noopener noreferrer">
+                        <span class="channel-icon" aria-hidden="true">
+                            <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"></path><path d="M22 2 11 13"></path></svg>
+                        </span>
+                        <span class="channel-copy">
+                            <strong>کانال و پشتیبانی تلگرام</strong>
+                            <span>ارتباط مستقیم با تیم فروش و پشتیبانی سرمد</span>
+                            <span class="channel-value"<?= $telegramLabel !== '' ? ' dir="ltr"' : '' ?>><?= $e($telegramLabel !== '' ? $telegramLabel : 'باز کردن تلگرام') ?></span>
+                        </span>
+                        <span class="channel-arrow" aria-hidden="true">←</span>
+                    </a>
+                <?php endif; ?>
+
+                <?php if ($hasPhone): ?>
+                    <a class="channel-card channel-phone" href="<?= $e($contact['phoneHref']) ?>">
+                        <span class="channel-icon" aria-hidden="true">
+                            <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                        </span>
+                        <span class="channel-copy">
+                            <strong>تماس تلفنی مستقیم</strong>
+                            <span>برای مشاوره فوری خرید و راه‌اندازی</span>
+                            <span class="channel-value" dir="ltr"><?= $e($phoneDisplay !== '' ? $phoneDisplay : 'تماس مستقیم') ?></span>
+                        </span>
+                        <span class="channel-arrow" aria-hidden="true">←</span>
+                    </a>
+                <?php endif; ?>
             </div>
-
-            <article class="consult-card" id="consult" aria-labelledby="consult-title">
-                <h3 id="consult-title">فرم درخواست مشاوره و نمایندگی</h3>
-                <p>مشخصات خود را وارد کنید؛ پیام درخواست برای ارسال از سریع‌ترین مسیر ارتباطی آماده می‌شود.</p>
-
-                <form class="consult-form" id="consult-form" action="#consult" method="get"
-                      data-whatsapp="<?= $e($contact['whatsappUrl']) ?>"
-                      data-telegram="<?= $e($contact['telegramUrl']) ?>">
-                    <div class="field">
-                        <label for="consult-name">نام و نام خانوادگی *</label>
-                        <input id="consult-name" name="name" type="text" autocomplete="name" placeholder="مثلاً علی رضایی" required>
-                    </div>
-
-                    <div class="field">
-                        <label for="consult-mobile">شماره موبایل *</label>
-                        <input id="consult-mobile" name="mobile" type="tel" inputmode="tel" autocomplete="tel" dir="ltr" placeholder="09xxxxxxxxx" required>
-                    </div>
-
-                    <div class="field">
-                        <label for="consult-company">نام مجموعه یا شهر</label>
-                        <input id="consult-company" name="company" type="text" autocomplete="organization" placeholder="نام کسب‌وکار یا شهر فعالیت">
-                    </div>
-
-                    <div class="field">
-                        <label for="consult-subject">موضوع درخواست</label>
-                        <select id="consult-subject" name="subject">
-                            <option value="مشاوره خرید سامانه">مشاوره خرید سامانه</option>
-                            <option value="اخذ نمایندگی رسمی">اخذ نمایندگی رسمی</option>
-                            <option value="درخواست دمو">درخواست دمو</option>
-                            <option value="پشتیبانی و راه‌اندازی">پشتیبانی و راه‌اندازی</option>
-                        </select>
-                    </div>
-
-                    <div class="field field-full">
-                        <label for="consult-message">توضیحات</label>
-                        <textarea id="consult-message" name="message" placeholder="درباره تعداد پرسنل، شعب، شهر فعالیت یا نیاز مجموعه بنویسید…"></textarea>
-                    </div>
-
-                    <div class="form-actions">
-                        <button class="btn btn-primary btn-large" type="submit">ارسال درخواست</button>
-                        <p class="form-note" id="form-note" role="status" aria-live="polite">پس از تکمیل فرم، پیام شما برای ارسال آماده می‌شود.</p>
-                        <p class="privacy-note">این فرم داده‌ای را روی سرور ذخیره نمی‌کند؛ پیام در مرورگر شما آماده و از مسیر ارتباطی انتخابی ارسال می‌شود.</p>
-                    </div>
-                </form>
-            </article>
-        </div>
+        <?php else: ?>
+            <div class="contact-empty" role="status">
+                <strong>اطلاعات تماس مستقیم در حال تکمیل است</strong>
+                <p>مسیرهای ارتباطی رسمی سرمد به‌زودی در همین بخش فعال می‌شوند.</p>
+            </div>
+        <?php endif; ?>
     </section>
 </main>
 
@@ -438,7 +423,7 @@ $phoneDisplay = (string) $contact['phoneDisplay'];
                 <small>حضور و غیاب هوشمند با تشخیص چهره</small>
             </span>
         </a>
-        <p>بدون دستگاه اختصاصی؛ سریع، ابری، آفلاین‌پذیر و آماده توسعه در سراسر کشور.</p>
+        <p>بدون دستگاه اختصاصی؛ سریع و ابری، با ادامه ثبت تردد روی کیوسک هنگام قطعی موقت اینترنت.</p>
         <nav class="footer-links" aria-label="پیوندهای فوتر">
             <a href="#features">ویژگی‌ها</a>
             <a href="#agency">نمایندگی</a>

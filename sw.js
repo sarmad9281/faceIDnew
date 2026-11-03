@@ -8,9 +8,11 @@
         the next person standing at the tablet.
      2. The device SHELL (offline page, css, js, icons, manifest) is cached, so
         the tablet still shows a branded kiosk screen without internet.
-     3. Navigation requests try the network first and fall back to the cached
-        offline shell - so a device that lost its connection never shows the
-        browser's "no internet" dinosaur.
+     3. Kiosk navigation requests try the network first and fall back to the
+        cached offline shell - so a device that lost its connection never
+        shows the browser's "no internet" dinosaur. Navigations outside the
+        kiosk are left untouched, so the public site and panels keep the
+        browser's normal offline behaviour instead of showing kiosk copy.
      4. Only same-origin GET requests are handled.
      5. Stage 5: the face engine and its model weights are cached as well, so a
         device that loses internet keeps recognising faces with the LOCAL model
@@ -21,7 +23,7 @@
    lives in localStorage and is only attached to requests by the page itself.
    ===================================================================== */
 
-const CACHE = 'sarmad-kiosk-v5';
+const CACHE = 'sarmad-kiosk-v6';
 
 const SHELL = [
     './device/offline',
@@ -63,6 +65,26 @@ function isApi(url) {
     return url.pathname.indexOf('/api/') !== -1;
 }
 
+function isDeviceNavigation(url) {
+    let scopePath = new URL(self.registration.scope).pathname;
+
+    if (scopePath.slice(-1) !== '/') {
+        scopePath += '/';
+    }
+
+    let relativePath = url.pathname;
+
+    if (relativePath.indexOf(scopePath) === 0) {
+        relativePath = relativePath.slice(scopePath.length);
+    } else {
+        relativePath = relativePath.replace(/^\/+/, '');
+    }
+
+    relativePath = relativePath.replace(/\/+$/, '');
+
+    return relativePath === 'device' || relativePath.indexOf('device/') === 0;
+}
+
 self.addEventListener('fetch', (event) => {
     const request = event.request;
 
@@ -77,8 +99,13 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Page navigations: network first, offline shell as the fallback.
+    // Kiosk navigations: network first, offline shell as the fallback.
+    // Other pages are deliberately not intercepted here.
     if (request.mode === 'navigate') {
+        if (!isDeviceNavigation(url)) {
+            return;
+        }
+
         event.respondWith(
             fetch(request).catch(() =>
                 caches.match('./device/offline').then((cached) =>
