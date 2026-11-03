@@ -133,8 +133,8 @@ $employment = [
                         <?php foreach ($records as $record): ?>
                             <tr>
                                 <td><?= $e(Jalali::date($record['attendance_date'] ?? '')) ?></td>
-                                <td class="ltr"><?= $e(substr((string) ($record['entry_at'] ?? ''), 11, 5) ?: '—') ?></td>
-                                <td class="ltr"><?= $e(substr((string) ($record['exit_at'] ?? ''), 11, 5) ?: '—') ?></td>
+                                <td class="ltr"><?= $e(Jalali::time($record['entry_at'] ?? '')) ?></td>
+                                <td class="ltr"><?= $e(Jalali::time($record['exit_at'] ?? '')) ?></td>
                                 <td><?= $e(AttendanceRecord::minutesLabel($record['work_minutes'] ?? 0)) ?></td>
                                 <td><?= $e(AttendanceRecord::minutesLabel($record['late_minutes'] ?? 0)) ?></td>
                                 <td><?= $e(AttendanceRecord::minutesLabel($record['early_leave_minutes'] ?? 0)) ?></td>

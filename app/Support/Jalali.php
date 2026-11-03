@@ -74,6 +74,11 @@ final class Jalali
 
     /**
      * "2025-10-06" / "2025-10-06 08:30:00" -> "۱۴۰۴/۰۷/۱۴" (as latin digits: 1404/07/14).
+     *
+     * The method is idempotent: a value that is ALREADY a Jalali date
+     * ("1404/07/14", optionally with a time) comes back in the same shape
+     * instead of being converted twice, so a display helper may be applied on
+     * top of an already-localised value without corrupting it.
      */
     public static function date($value, bool $withTime = false): string
     {
@@ -81,6 +86,13 @@ final class Jalali
 
         if ($value === '' || $value === '0000-00-00' || strpos($value, '0000-00-00') === 0) {
             return '—';
+        }
+
+        if (preg_match('#^(\d{4})/(\d{1,2})/(\d{1,2})(?:[ T](\d{2}:\d{2}))?#', $value, $jalaliMatch) === 1) {
+            $jalali = sprintf('%04d/%02d/%02d', (int) $jalaliMatch[1], (int) $jalaliMatch[2], (int) $jalaliMatch[3]);
+            $clock  = (string) ($jalaliMatch[4] ?? '');
+
+            return $withTime && $clock !== '' ? $jalali . ' ' . $clock : $jalali;
         }
 
         $time = '';
@@ -101,6 +113,95 @@ final class Jalali
         $out = sprintf('%04d/%02d/%02d', $jy, $jm, $jd);
 
         return $withTime && $time !== '' ? $out . ' ' . $time : $out;
+    }
+
+    /**
+     * A clean 24h clock label: "2025-10-06 08:30:00", "08:30:00" and "08:30"
+     * all become "08:30" (never the raw timestamp, never "08:30:00").
+     *
+     * "—" is returned for an empty value or a date without a time, so a table
+     * cell never shows a dangling colon or a zeroed placeholder.
+     */
+    public static function time($value): string
+    {
+        $value = trim((string) ($value ?? ''));
+
+        if ($value === '' || strpos($value, '0000-00-00') === 0) {
+            return '—';
+        }
+
+        if (preg_match('/(\d{1,2}):(\d{2})/', $value, $match) !== 1) {
+            return '—';
+        }
+
+        $hour   = (int) $match[1];
+        $minute = (int) $match[2];
+
+        if ($hour > 23 || $minute > 59) {
+            return '—';
+        }
+
+        return sprintf('%02d:%02d', $hour, $minute);
+    }
+
+    /**
+     * Jalali date AND clean time: "2025-10-06 08:30:00" -> "1404/07/14 08:30".
+     */
+    public static function dateTime($value): string
+    {
+        $date = self::date($value);
+
+        if ($date === '—') {
+            return $date;
+        }
+
+        $clock = self::time($value);
+
+        return $clock === '—' ? $date : $date . ' ' . $clock;
+    }
+
+    /**
+     * A month bucket -> Jalali month label.
+     *
+     * "2025-10"       -> "1404/07"
+     * "2025-03"       -> "1403/12 - 1404/01" (the Gregorian bucket straddles
+     *                    two Jalali months, and saying so is the honest label)
+     * "2025-10-06"    -> "1404/07"
+     */
+    public static function monthLabel($value): string
+    {
+        $value = trim((string) ($value ?? ''));
+
+        if ($value === '' || strpos($value, '0000-00-00') === 0) {
+            return '—';
+        }
+
+        if (preg_match('#^(\d{4})[/-](\d{1,2})$#', $value, $monthMatch) === 1) {
+            $year  = (int) $monthMatch[1];
+            $month = (int) $monthMatch[2];
+
+            if ($month < 1 || $month > 12) {
+                return $value;
+            }
+
+            $daysInMonth = (int) date('t', (int) mktime(0, 0, 0, $month, 1, $year));
+            $first       = self::monthOf($year, $month, 1);
+            $last        = self::monthOf($year, $month, $daysInMonth);
+
+            return $first === $last ? $first : $first . ' - ' . $last;
+        }
+
+        $date = self::date($value);
+
+        return $date === '—' ? $date : substr($date, 0, 7);
+    }
+
+    /** "1404/07" for one specific Gregorian day. */
+    private static function monthOf(int $year, int $month, int $day): string
+    {
+        [$jy, $jm] = self::fromGregorian($year, $month, $day);
+
+        return sprintf('%04d/%02d', $jy, $jm);
     }
 
     /**

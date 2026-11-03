@@ -15,8 +15,12 @@
  *     objects can be touched,
  *   - deleted rows (soft deleted) are always excluded.
  *
- * `attendance_date` is the real (Gregorian) date column. The UI converts it to
- * Jalali for display only.
+ * `attendance_date` is the real (Gregorian) date column and stays that way in
+ * the data: every row comes out of build() with the ISO value and every date,
+ * datetime or clock column is tagged with a `format` ('date', 'datetime',
+ * 'time'). ReportService::present() is the single rule that turns such a cell
+ * into a Jalali / SHAMSY string for a human (screen or .xlsx), so no report can
+ * show a raw Gregorian date by accident.
  */
 
 declare(strict_types=1);
@@ -24,6 +28,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Database;
+use App\Models\AttendanceRecord;
+use App\Support\Jalali;
 
 final class ReportService
 {
@@ -53,6 +59,66 @@ final class ReportService
 
     /** Reports behind the advanced_reports feature. */
     public const ADVANCED_TYPES = ['trend', 'compare_employees', 'compare_branches'];
+
+    /**
+     * Column formats that are written as a real NUMBER cell in Excel.
+     * Everything else in a report cell is text by definition.
+     */
+    public const NUMERIC_FORMATS = ['int', 'money', 'minutes'];
+
+    /**
+     * The ONE display rule of a report cell.
+     *
+     * The rows returned by build() keep the raw Gregorian values (the API and
+     * every query stay machine readable, exactly like the ISO date in the JSON
+     * API). This method turns one cell into what the user must see:
+     *
+     *   'date'     -> Jalali::date()     1404/07/14
+     *   'datetime' -> Jalali::dateTime() 1404/07/14 08:30
+     *   'time'     -> Jalali::time()     08:30  (never "08:30:00", never a
+     *                                    raw "2025-10-06 08:30:00")
+     *   numbers    -> minutes label / thousands separated / plain integer
+     *
+     * Both consumers of build() use it - the web report table and the Excel
+     * exporter - so a Shamsi date is impossible on the screen and Gregorian in
+     * the .xlsx (or the other way round).
+     *
+     * @param array{key?:string,label?:string,format?:string} $column
+     * @param mixed $value
+     */
+    public static function present(array $column, $value): string
+    {
+        $format = (string) ($column['format'] ?? '');
+
+        switch ($format) {
+            case 'date':
+                return Jalali::date($value);
+            case 'datetime':
+                return Jalali::dateTime($value);
+            case 'time':
+                return Jalali::time($value);
+            case 'minutes':
+                return AttendanceRecord::minutesLabel($value);
+            case 'money':
+                return number_format((float) $value, 0, '.', ',');
+            case 'int':
+                return (string) (int) $value;
+            default:
+                return (string) ($value ?? '');
+        }
+    }
+
+    /** Is this column a number cell (sum-able in Excel) rather than text? */
+    public static function numericFormat(string $format): bool
+    {
+        return in_array($format, self::NUMERIC_FORMATS, true);
+    }
+
+    /** Is this column a date/clock column that must be shown in Jalali? */
+    public static function isDateOrTimeFormat(string $format): bool
+    {
+        return in_array($format, ['date', 'datetime', 'time'], true);
+    }
 
     private function records(): string
     {
@@ -722,10 +788,10 @@ final class ReportService
                     'columns' => [
                         ['key' => 'employee', 'label' => 'پرسنل'],
                         ['key' => 'code', 'label' => 'کد پرسنلی'],
-                        ['key' => 'date', 'label' => 'تاریخ'],
+                        ['key' => 'date', 'label' => 'تاریخ', 'format' => 'date'],
                         ['key' => 'shift', 'label' => 'شیفت'],
-                        ['key' => 'shift_start', 'label' => 'شروع شیفت'],
-                        ['key' => 'entry_time', 'label' => 'ورود ثبت‌شده'],
+                        ['key' => 'shift_start', 'label' => 'شروع شیفت', 'format' => 'time'],
+                        ['key' => 'entry_time', 'label' => 'ورود ثبت‌شده', 'format' => 'time'],
                         ['key' => 'grace', 'label' => 'مهلت مجاز', 'format' => 'int'],
                         ['key' => 'late_minutes', 'label' => 'تأخیر (دقیقه)', 'format' => 'int'],
                     ],
@@ -756,10 +822,10 @@ final class ReportService
                     'columns' => [
                         ['key' => 'employee', 'label' => 'پرسنل'],
                         ['key' => 'code', 'label' => 'کد پرسنلی'],
-                        ['key' => 'date', 'label' => 'تاریخ'],
+                        ['key' => 'date', 'label' => 'تاریخ', 'format' => 'date'],
                         ['key' => 'shift', 'label' => 'شیفت'],
-                        ['key' => 'shift_end', 'label' => 'پایان شیفت'],
-                        ['key' => 'exit_time', 'label' => 'خروج ثبت‌شده'],
+                        ['key' => 'shift_end', 'label' => 'پایان شیفت', 'format' => 'time'],
+                        ['key' => 'exit_time', 'label' => 'خروج ثبت‌شده', 'format' => 'time'],
                         ['key' => 'early_leave_minutes', 'label' => 'تعجیل خروج (دقیقه)', 'format' => 'int'],
                     ],
                     'rows'    => array_map(static fn (array $r): array => [
@@ -788,10 +854,10 @@ final class ReportService
                     'columns' => [
                         ['key' => 'employee', 'label' => 'پرسنل'],
                         ['key' => 'code', 'label' => 'کد پرسنلی'],
-                        ['key' => 'date', 'label' => 'تاریخ'],
+                        ['key' => 'date', 'label' => 'تاریخ', 'format' => 'date'],
                         ['key' => 'shift', 'label' => 'شیفت'],
-                        ['key' => 'shift_end', 'label' => 'پایان شیفت'],
-                        ['key' => 'exit_time', 'label' => 'خروج ثبت‌شده'],
+                        ['key' => 'shift_end', 'label' => 'پایان شیفت', 'format' => 'time'],
+                        ['key' => 'exit_time', 'label' => 'خروج ثبت‌شده', 'format' => 'time'],
                         ['key' => 'overtime_minutes', 'label' => 'اضافه‌کاری (دقیقه)', 'format' => 'int'],
                     ],
                     'rows'    => array_map(static fn (array $r): array => [
@@ -820,7 +886,7 @@ final class ReportService
                     'columns' => [
                         ['key' => 'employee', 'label' => 'پرسنل'],
                         ['key' => 'code', 'label' => 'کد پرسنلی'],
-                        ['key' => 'date', 'label' => 'تاریخ'],
+                        ['key' => 'date', 'label' => 'تاریخ', 'format' => 'date'],
                         ['key' => 'shift', 'label' => 'شیفت'],
                         ['key' => 'status', 'label' => 'وضعیت'],
                         ['key' => 'source', 'label' => 'منبع'],
@@ -849,8 +915,8 @@ final class ReportService
                     'columns' => [
                         ['key' => 'employee', 'label' => 'پرسنل'],
                         ['key' => 'leave_type', 'label' => 'نوع مرخصی'],
-                        ['key' => 'start_date', 'label' => 'از تاریخ'],
-                        ['key' => 'end_date', 'label' => 'تا تاریخ'],
+                        ['key' => 'start_date', 'label' => 'از تاریخ', 'format' => 'date'],
+                        ['key' => 'end_date', 'label' => 'تا تاریخ', 'format' => 'date'],
                         ['key' => 'days', 'label' => 'تعداد روز'],
                         ['key' => 'status', 'label' => 'وضعیت'],
                         ['key' => 'description', 'label' => 'توضیحات'],
@@ -911,7 +977,7 @@ final class ReportService
                     'title'   => self::TYPES['inside'],
                     'columns' => [
                         ['key' => 'employee', 'label' => 'پرسنل'],
-                        ['key' => 'entry_time', 'label' => 'زمان ورود'],
+                        ['key' => 'entry_time', 'label' => 'زمان ورود', 'format' => 'datetime'],
                         ['key' => 'duration', 'label' => 'مدت حضور', 'format' => 'minutes'],
                         ['key' => 'branch', 'label' => 'شعبه'],
                         ['key' => 'device', 'label' => 'دستگاه'],
@@ -979,10 +1045,10 @@ final class ReportService
                     'columns' => [
                         ['key' => 'employee', 'label' => 'پرسنل'],
                         ['key' => 'code', 'label' => 'کد پرسنلی'],
-                        ['key' => 'date', 'label' => 'تاریخ'],
+                        ['key' => 'date', 'label' => 'تاریخ', 'format' => 'date'],
                         ['key' => 'shift', 'label' => 'شیفت'],
-                        ['key' => 'entry_time', 'label' => 'ورود'],
-                        ['key' => 'exit_time', 'label' => 'خروج'],
+                        ['key' => 'entry_time', 'label' => 'ورود', 'format' => 'time'],
+                        ['key' => 'exit_time', 'label' => 'خروج', 'format' => 'time'],
                         ['key' => 'work_minutes', 'label' => 'کارکرد', 'format' => 'minutes'],
                         ['key' => 'late_minutes', 'label' => 'تأخیر', 'format' => 'minutes'],
                         ['key' => 'early_leave_minutes', 'label' => 'تعجیل خروج', 'format' => 'minutes'],

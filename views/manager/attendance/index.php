@@ -132,7 +132,7 @@ $flagList = static function ($flagsRaw) use ($flags): array {
                         <small><?= $e($row['branch_name'] ?? '') ?></small>
                     </div>
                     <div class="muted small">
-                        ورود: <span class="ltr num"><?= $e(substr((string) $row['entry_at'], 11, 5)) ?></span>
+                        ورود: <span class="ltr num"><?= $e(Jalali::time($row['entry_at'] ?? '')) ?></span>
                         — مدت حضور: <span class="num"><?= $e(intdiv(max(0, (int) $row['inside_minutes']), 60)) ?> ساعت و <?= $e(max(0, (int) $row['inside_minutes']) % 60) ?> دقیقه</span>
                     </div>
                     <div class="row-actions">
@@ -266,8 +266,8 @@ $flagList = static function ($flagsRaw) use ($flags): array {
                         <small><?= $e($row['branch_name'] ?? '') ?></small>
                         </td>
                         <td><?= $e(Jalali::date($row['attendance_date'] ?? '')) ?></td>
-                        <td class="ltr num"><?= $e(substr((string) ($row['entry_at'] ?? ''), 11, 5) ?: '—') ?></td>
-                        <td class="ltr num"><?= $e(substr((string) ($row['exit_at'] ?? ''), 11, 5) ?: '—') ?></td>
+                        <td class="ltr num"><?= $e(Jalali::time($row['entry_at'] ?? '')) ?></td>
+                        <td class="ltr num"><?= $e(Jalali::time($row['exit_at'] ?? '')) ?></td>
                         <td class="num"><?= $e(AttendanceRecord::minutesLabel($row['work_minutes'] ?? 0)) ?></td>
                         <td class="num"><?= $e(AttendanceRecord::minutesLabel($row['late_minutes'] ?? 0)) ?></td>
                         <td class="num"><?= $e(AttendanceRecord::minutesLabel($row['early_leave_minutes'] ?? 0)) ?></td>

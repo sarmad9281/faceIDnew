@@ -29,7 +29,8 @@ $link = static function (string $type, bool $withEmployee = false) use ($filters
         <p class="muted small">
             فایل‌ها واقعی <span class="ltr">.xlsx</span> هستند و با کتابخانه
             <span class="ltr"><?= $e($library['name']) ?> <?= $e($library['version']) ?></span>
-            ساخته می‌شوند: عنوان گزارش، نام مجموعه، بازه تاریخ، فیلترها، جدول با فیلتر خودکار و بخش خلاصه.
+            ساخته می‌شوند: عنوان گزارش، نام مجموعه، بازه تاریخ شمسی، فیلترها، جدول با فیلتر خودکار و بخش خلاصه؛
+            همه تاریخ‌ها شمسی، ساعت‌ها به صورت <span class="ltr">HH:MM</span> و صفحه‌بندی آمادهٔ چاپ رسمی A4 افقی است.
         </p>
     </div>
     <div class="row-actions">
@@ -100,10 +101,12 @@ $link = static function (string $type, bool $withEmployee = false) use ($filters
     <div class="card-head"><h2>محتوای هر فایل</h2></div>
     <ul class="list">
         <li class="list-row"><span>عنوان گزارش و نام مجموعه</span><span class="badge">ردیف ۱ و ۲</span></li>
-        <li class="list-row"><span>بازه تاریخ (شمسی و میلادی) و تاریخ تولید</span><span class="badge">ردیف ۳ و ۴</span></li>
+        <li class="list-row"><span>بازه تاریخ شمسی، تاریخ و ساعت تولید گزارش</span><span class="badge">ردیف ۳ و ۴</span></li>
         <li class="list-row"><span>فیلترهای اعمال‌شده</span><span class="badge">ردیف ۵</span></li>
-        <li class="list-row"><span>جدول داده با فیلتر خودکار و قفل سرصفحه</span><span class="badge">Freeze + AutoFilter</span></li>
+        <li class="list-row"><span>جدول داده با تاریخ شمسی و ساعت HH:MM، فیلتر خودکار و قفل سرصفحه</span><span class="badge">Freeze + AutoFilter</span></li>
+        <li class="list-row"><span>عرض ستون‌ها بر اساس بلندترین دادهٔ هر ستون + حاشیهٔ امن (بدون ###)</span><span class="badge">Auto width</span></li>
         <li class="list-row"><span>خلاصه گزارش زیر جدول</span><span class="badge">Summary</span></li>
+        <li class="list-row"><span>چاپ رسمی A4 افقی، فیت‌شده در ۱ صفحه عرض، تکرار ردیف تیتر، خطوط جدول و شماره صفحه</span><span class="badge">Print A4</span></li>
     </ul>
     <p class="muted small">
         کتابخانه: <span class="ltr"><?= $e($library['path']) ?></span> — نسخه <span class="ltr"><?= $e($library['version']) ?></span>
