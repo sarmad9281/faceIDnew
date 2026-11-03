@@ -69,27 +69,27 @@ final class Device extends Model
 
     /**
      * Issue (or rotate) the device API token. The plain token is returned
-     * exactly once and never stored.
+     * exactly once and never stored. Device credentials remain valid until
+     * revoked or rotated; $days is retained for caller compatibility.
      *
-     * @return array{token:string, prefix:string, expires_at:string}
+     * @return array{token:string, prefix:string, expires_at:null}
      */
     public static function issueToken(int $deviceId, int $days = 365): array
     {
         $token  = 'att_' . Security::randomToken(32);
         $prefix = substr($token, 0, 12);
-        $days   = max(1, $days);
 
         self::updateById($deviceId, [
             'api_token_hash'   => Security::hashToken($token),
             'token_prefix'     => $prefix,
-            'token_expires_at' => date('Y-m-d H:i:s', time() + ($days * 86400)),
+            'token_expires_at' => null,
             'token_rotated_at' => date('Y-m-d H:i:s'),
         ]);
 
         return [
             'token'      => $token,
             'prefix'     => $prefix,
-            'expires_at' => (string) date('Y-m-d H:i:s', time() + ($days * 86400)),
+            'expires_at' => null,
         ];
     }
 
