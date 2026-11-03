@@ -11,6 +11,9 @@ const storage = {};
 let online = true;
 let networkAvailable = true;
 let serverError = null;
+let serverStatus = 401;
+let pendingConfig = false;
+let heartbeatError = null;
 const calls = [];
 let detectMode = "matched";
 const config = {
@@ -89,9 +92,11 @@ async function boot() {
   win.fetch = async (url, opts) => {
     calls.push({ url, opts });
     if (!online || !networkAvailable) throw Error("offline");
+    if (pendingConfig && url.endsWith("/config")) return new Promise(() => {});
+    if (heartbeatError && url.endsWith("/heartbeat")) return {status: heartbeatError.status, json: async () => ({success:false, code: heartbeatError.code})};
     if (serverError && url.endsWith("/config"))
       return {
-        status: 403,
+        status: serverStatus,
         json: async () => ({ success: false, code: serverError }),
       };
     let data;
@@ -247,7 +252,7 @@ async function punch(id) {
   await boot();
   assert.equal(
     win.document.getElementById("kiosk").getAttribute("data-state"),
-    "blocked:DEVICE_REVOKED",
+    "unactivated:DEVICE_REVOKED",
   );
   assert.equal(
     win.localStorage.getItem("sarmad.device.credential_config"),
@@ -265,12 +270,10 @@ async function punch(id) {
   await boot();
   assert.match(
     win.document.getElementById("kiosk").getAttribute("data-state"),
-    /^unactivated:/,
+    /^home$/,
   );
-  assert.equal(
-    win.localStorage.getItem("sarmad.device.credential_config"),
-    null,
-  );
+  assert.equal(win.SARMAD_KIOSK_STATE.config, null);
+  assert.notEqual(win.localStorage.getItem("sarmad.device.credential_config"), null);
   dom.window.close();
   delete storage["sarmad.device.credential"];
   await boot();
@@ -279,6 +282,59 @@ async function punch(id) {
     /^unactivated:/,
   );
   dom.window.close();
+
+  // Server failures and missing/malformed config never cause reactivation.
+  storage["sarmad.device.credential"] = JSON.stringify({ token: "device-token-123", device_id: 7 });
+  for (const [status, code] of [[500, "INTERNAL_ERROR"], [502, "INVALID_RESPONSE"], [403, "DEVICE_UNAUTHORIZED"], [401, "DEVICE_INACTIVE"], [401, "CUSTOMER_DISABLED"]]) {
+    online = true; networkAvailable = true; serverStatus = status; serverError = code;
+    delete storage["sarmad.device.credential_config"];
+    await boot();
+    assert.equal(win.document.getElementById("kiosk").getAttribute("data-state"), "home", code);
+    assert.equal(win.document.getElementById("k-action-entry").disabled, false);
+    assert.notEqual(win.localStorage.getItem("sarmad.device.credential"), null);
+    dom.window.close();
+  }
+  serverError = null; pendingConfig = true;
+  storage["sarmad.device.credential_config"] = "{broken";
+  await boot();
+  assert.equal(win.document.getElementById("kiosk").getAttribute("data-state"), "home");
+  dom.window.close();
+  pendingConfig = false;
+  // Old credentials without a device_id retain matching cached branding.
+  online = false;
+  storage["sarmad.device.credential"] = JSON.stringify({token: "device-token-123"});
+  storage["sarmad.device.credential_config"] = JSON.stringify(config);
+  await boot();
+  assert.equal(win.document.getElementById("kiosk").getAttribute("data-state"), "home");
+  assert.equal(win.document.getElementById("k-business").textContent, "Test");
+  dom.window.close();
+  for (const code of ["DEVICE_UNAUTHORIZED", "DEVICE_REVOKED", "DEVICE_NOT_FOUND"]) {
+    online = true; serverStatus = 401; serverError = code;
+    storage["sarmad.device.credential"] = JSON.stringify({token: "device-token-123", device_id: 7});
+    await boot();
+    assert.equal(win.document.getElementById("kiosk").getAttribute("data-state"), "unactivated:" + code);
+    assert.equal(win.localStorage.getItem("sarmad.device.credential"), null);
+    dom.window.close();
+  }
+
+  // A heartbeat failure may not unpair a registered kiosk unless explicitly revoked.
+  serverError = null; online = true; networkAvailable = true;
+  for (const error of [{status: 500, code: "INTERNAL_ERROR"}, {status: 401, code: "DEVICE_INACTIVE"}, {status: 403, code: "DEVICE_UNAUTHORIZED"}, {status: 401, code: "DEVICE_REVOKED"}]) {
+    heartbeatError = error;
+    storage["sarmad.device.credential"] = JSON.stringify({token: "device-token-123", device_id: 7});
+    await boot();
+    win.dispatchEvent(new win.Event("online"));
+    await sleep();
+    if (error.code === "DEVICE_REVOKED") {
+      assert.equal(win.document.getElementById("kiosk").getAttribute("data-state"), "unactivated:DEVICE_REVOKED");
+      assert.equal(win.localStorage.getItem("sarmad.device.credential"), null);
+    } else {
+      assert.equal(win.document.getElementById("kiosk").getAttribute("data-state"), "home");
+      assert.notEqual(win.localStorage.getItem("sarmad.device.credential"), null);
+    }
+    dom.window.close();
+  }
+  heartbeatError = null;
 
   // Queue bounds and storage failures never lose old punches or report success.
   const queueModule = require("../assets/js/device-queue.js");

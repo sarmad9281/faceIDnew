@@ -92,21 +92,9 @@ async function scenario(scope) {
   await pending;
   assert(precached.includes("./device"));
   assert(precached.includes("./device/offline"));
-  for (const name of [
-    "tiny_face_detector_model-shard1",
-    "ssd_mobilenetv1_model-shard1",
-    "ssd_mobilenetv1_model-shard2",
-    "face_landmark_68_model-shard1",
-    "face_recognition_model-shard1",
-    "face_recognition_model-shard2",
-  ]) {
-    const file = "./assets/models/face-api-1.0.0/" + name;
-    assert(precached.includes(file), `missing model ${file}`);
-    assert(
-      fs.existsSync(path.join(__dirname, "..", file)),
-      `missing on disk ${file}`,
-    );
-  }
+  assert(!precached.some((item) => item.includes("/assets/models/")), "models must not block install");
+  const oldCache = await cacheApi.open("sarmad-kiosk-v7");
+  await oldCache.put("./assets/models/face-api-1.0.0/face_recognition_model-shard1", {body: "old-model", ok: true, clone() { return this; }});
   listeners.activate({
     waitUntil(p) {
       pending = p;
@@ -130,6 +118,10 @@ async function scenario(scope) {
     });
     return response ? await response : null;
   }
+  // The core installs without invoking the network for any model.
+  listeners.message({data: "CACHE_MODELS", waitUntil(p) {pending = p;}});
+  await pending;
+  assert(stores.get("sarmad-kiosk-v8").has(resolve("./assets/models/face-api-1.0.0/face_recognition_model-shard1")));
   const base = new URL(scope).pathname;
   assert.equal((await request(base + "device")).body, "network");
   online = false;
@@ -141,7 +133,7 @@ async function scenario(scope) {
   assert.equal(await request(base + "api/v1/device/config", "cors"), null);
   assert.equal(await request(base + "device", "navigate", "POST"), null);
   assert.equal(
-    (await request(base + "assets/js/device.js?v=1.0.7&v=1.0.7", "no-cors"))
+    (await request(base + "assets/js/device.js?v=1.0.8&v=1.0.8", "no-cors"))
       .body,
     "./assets/js/device.js",
   );
@@ -152,9 +144,9 @@ async function scenario(scope) {
         "cors",
       )
     ).body,
-    "./assets/models/face-api-1.0.0/face_recognition_model-shard1",
+    "old-model",
   );
-  const cache = stores.get("sarmad-kiosk-v7");
+  const cache = stores.get("sarmad-kiosk-v8");
   cache.delete(resolve("./device"));
   assert.equal((await request(base + "device")).body, "./device/offline");
   cache.delete(resolve("./device/offline"));

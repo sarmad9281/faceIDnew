@@ -113,7 +113,8 @@ return [
         'csrf_lifetime'        => 7200,
         // Trust X-Forwarded-For (only if the site really sits behind a proxy)
         'trust_proxy'          => false,
-        // Device API token lifetime (days) & heartbeat timeout (seconds)
+        // Device tokens persist until revoked/rotated; retained for old configs.
+        // Heartbeat timeout is in seconds.
         'device_token_days'    => 365,
         'device_offline_after' => 300,
     ],

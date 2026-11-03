@@ -472,7 +472,7 @@ check_min "a device token was issued" "$(printf '%s' "$DEVICE_TOKEN" | wc -c | t
 check_contains "the token carries the device prefix" "$DEVICE_TOKEN" "att_"
 check_contains "the token names its own customer" "$(jget data/config/customer/name)" "$CUSTOMER_NAME"
 check_contains "the token names its own branch" "$(jget data/config/branch/name)" "شعبه دستگاه ${STAMP}"
-check_min "an expiry was set for the token" "$(printf '%s' "$TOKEN_EXPIRES" | wc -c | tr -d ' ')" 10
+check "device token has no automatic expiry" "$TOKEN_EXPIRES" ""
 
 check "the plain token is not stored (hash only)" \
   "$(mysql_q "SELECT COUNT(*) FROM ${PREFIX}devices WHERE api_token_hash='${DEVICE_TOKEN}'")" "0"
