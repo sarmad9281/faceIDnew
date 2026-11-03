@@ -39,6 +39,24 @@ return [
     ],
 
     /* -----------------------------------------------------------------
+     * Public landing page contact channels (shown on GET /)
+     *
+     * Leave empty to keep the landing fully self-contained: the contact
+     * cards then lead to the on-page consultation form. Fill any channel
+     * to make its card (and the form's send button) point straight at it.
+     *   phone         : dialable number, e.g. +98... (used for tel: links)
+     *   phone_display : optional prettier label for the number
+     *   whatsapp      : number or full https://wa.me/... link
+     *   telegram      : username (with or without @) or full https://t.me/...
+     * ----------------------------------------------------------------*/
+    'landing' => [
+        'phone'         => '',
+        'phone_display' => '',
+        'whatsapp'      => '',
+        'telegram'      => '',
+    ],
+
+    /* -----------------------------------------------------------------
      * Database (given by hosting / DirectAdmin)
      * ----------------------------------------------------------------*/
     'db' => [
