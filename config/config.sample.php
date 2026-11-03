@@ -24,7 +24,7 @@ return [
      * ----------------------------------------------------------------*/
     'app' => [
         'name'        => 'SARMAD Attendance',
-        'version'     => '1.0.0',
+        'version'     => '1.0.1',
         // 'production' | 'local'   (local => verbose errors, never online)
         'env'         => 'production',
         'debug'       => false,

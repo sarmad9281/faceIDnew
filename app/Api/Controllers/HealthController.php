@@ -27,7 +27,7 @@ final class HealthController
 
         return ApiResponse::success([
             'app'      => (string) Config::get('app.name', 'SARMAD Attendance'),
-            'version'  => (string) Config::get('app.version', '1.0.0'),
+            'version'  => (string) Config::get('app.version', '1.0.1'),
             'php'      => PHP_VERSION,
             'database' => [
                 'driver' => 'mysql',

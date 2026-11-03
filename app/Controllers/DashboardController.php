@@ -162,7 +162,7 @@ final class DashboardController
         $payload = [
             'status'     => 'ok',
             'app'        => 'SARMAD Attendance',
-            'version'    => (string) \App\Core\Config::get('app.version', '1.0.0'),
+            'version'    => (string) \App\Core\Config::get('app.version', '1.0.1'),
             'php'        => PHP_VERSION,
             'database'   => Database::connected() ? 'connected' : 'disconnected',
             'tables'     => count(Database::projectTables()),

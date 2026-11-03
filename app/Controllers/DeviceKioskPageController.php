@@ -60,7 +60,7 @@ final class DeviceKioskPageController
             'swUrl'       => 'sw.js',
             'apiBase'     => Url::to('/api/v1/device'),
             'heartbeat'   => (int) Config::get('security.device_heartbeat_interval', 60),
-            'appVersion'  => (string) Config::get('app.version', '1.0.0'),
+            'appVersion'  => (string) Config::get('app.version', '1.0.1'),
         ];
     }
 
