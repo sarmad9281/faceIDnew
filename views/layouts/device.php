@@ -43,7 +43,7 @@ $deviceState = $deviceState ?? 'unactivated';
     <link rel="manifest" href="<?= $e($manifestUrl) ?>">
     <link rel="icon" type="image/png" sizes="192x192" href="<?= $e($asset('/icons/icon-192.png')) ?>">
     <link rel="apple-touch-icon" href="<?= $e($asset('/icons/apple-touch-icon.png')) ?>">
-    <link rel="stylesheet" href="<?= $e($asset('/css/device.css')) ?>&v=1.0.9">
+    <link rel="stylesheet" href="<?= $e($asset('/css/device.css')) ?>&v=1.1.0">
 </head>
 <body class="kiosk">
 <div id="kiosk"
@@ -73,9 +73,9 @@ $deviceState = $deviceState ?? 'unactivated';
 <?php /* Stage 5 engine: all local, all same-origin, no CDN. */ ?>
 <script src="<?= $e($asset('/vendor/tfjs-1.7.4.min.js')) ?>" defer></script>
 <script src="<?= $e($asset('/vendor/face-api-0.22.2.min.js')) ?>" defer></script>
-<script src="<?= $e($asset('/js/face/face-engine.js')) ?>&v=1.0.9" defer></script>
-<script src="<?= $e($asset('/js/face/face-store.js')) ?>&v=1.0.9" defer></script>
-<script src="<?= $e($asset('/js/device-queue.js')) ?>&v=1.0.9" defer></script>
-<script src="<?= $e($asset('/js/device.js')) ?>&v=1.0.9" defer></script>
+<script src="<?= $e($asset('/js/face/face-engine.js')) ?>&v=1.1.0" defer></script>
+<script src="<?= $e($asset('/js/face/face-store.js')) ?>&v=1.1.0" defer></script>
+<script src="<?= $e($asset('/js/device-queue.js')) ?>&v=1.1.0" defer></script>
+<script src="<?= $e($asset('/js/device.js')) ?>&v=1.1.0" defer></script>
 </body>
 </html>

@@ -189,7 +189,7 @@ async function punch(id) {
     JSON.parse(win.localStorage.getItem("sarmad.device.queue"))[0].event_type,
     "entry",
   );
-  assert(played.some(x => !x.muted && x.src.includes("/entry.mp3")));
+  assert(played.some(x => !x.muted && x.src.endsWith("/entry.mp3?v=1.1.0")));
   win.document.getElementById("kiosk-success").click();
   await punch("k-action-exit");
   assert.equal(
@@ -197,7 +197,7 @@ async function punch(id) {
     "exit",
   );
   win.document.getElementById("kiosk-success").click();
-  assert(played.some(x => !x.muted && x.src.includes("/exit.mp3")));
+  assert(played.some(x => !x.muted && x.src.endsWith("/exit.mp3?v=1.1.0")));
   detectMode = "unknown";
   await punch("k-action-entry");
   assert.equal(
@@ -208,7 +208,7 @@ async function punch(id) {
     JSON.parse(win.localStorage.getItem("sarmad.device.queue")).length,
     2,
   );
-  assert(played.some(x => !x.muted && x.src.includes("/error.mp3")));
+  assert(played.some(x => !x.muted && x.src.endsWith("/error.mp3?v=1.1.0")));
   win.document.getElementById('k-error-close').click();
   win.SARMAD_KIOSK_STATE.settings.success_sound = false;
   const countPlayed = played.length;
