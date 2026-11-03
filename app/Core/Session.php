@@ -98,6 +98,23 @@ final class Session
      * ===============================================================*/
 
     /**
+     * Regenerate the session ID only when PHP reports an active session.
+     *
+     * Calling session_regenerate_id() without an active session emits a
+     * warning, which the application error handler promotes to an
+     * ErrorException. The status guard avoids that path entirely; the @
+     * operator is a second guard and is respected by that error handler.
+     */
+    public static function safeRegenerateId(bool $deleteOld = true): bool
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            return @session_regenerate_id($deleteOld);
+        }
+
+        return false;
+    }
+
+    /**
      * Bind the session to the browser fingerprint (protects against a
      * stolen cookie being replayed from another client).
      */
@@ -111,7 +128,7 @@ final class Session
             $_SESSION[self::KEY_BIND_IP]      = self::ipClass();
 
             // A brand new session id for a brand new visitor.
-            session_regenerate_id(true);
+            self::safeRegenerateId(true);
 
             return;
         }
@@ -181,7 +198,10 @@ final class Session
             return;
         }
 
-        session_regenerate_id(true);
+        if (!self::safeRegenerateId(true)) {
+            return;
+        }
+
         $_SESSION[self::KEY_LAST_ROTATE] = $now;
         $_SESSION[self::KEY_BIND_UA]     = self::fingerprint();
         $_SESSION[self::KEY_BIND_IP]     = self::ipClass();
@@ -192,7 +212,7 @@ final class Session
      */
     public static function regenerateForLogin(): void
     {
-        session_regenerate_id(true);
+        self::safeRegenerateId(true);
         $_SESSION[self::KEY_STARTED_AT]  = time();
         $_SESSION[self::KEY_LAST_SEEN_AT] = time();
         $_SESSION[self::KEY_LAST_ROTATE] = time();
@@ -378,7 +398,7 @@ final class Session
 
         session_destroy();
         session_start();
-        session_regenerate_id(true);
+        self::safeRegenerateId(true);
         self::$started = true;
         Csrf::rotate();
     }
