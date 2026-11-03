@@ -32,8 +32,10 @@ final class FeatureFlag extends Model
     /**
      * Is a feature enabled for a customer?
      *
-     * Unknown feature keys are treated as DISABLED: a typo can never
-     * accidentally open a gate.
+     * An explicit per-customer row always wins. Without one, the core
+     * product modules default to enabled; other features use their
+     * catalogue default. Unknown feature keys are treated as DISABLED:
+     * a typo can never accidentally open a gate.
      */
     public static function isEnabled(int $customerId, string $featureKey): bool
     {
@@ -45,6 +47,10 @@ final class FeatureFlag extends Model
 
         if (array_key_exists($featureKey, $map)) {
             return $map[$featureKey];
+        }
+
+        if (in_array($featureKey, ['attendance', 'employees', 'reports'], true)) {
+            return true;
         }
 
         $feature = Feature::byKey($featureKey);

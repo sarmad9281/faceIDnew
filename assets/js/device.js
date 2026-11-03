@@ -136,7 +136,7 @@
         token: null,
         config: null,
         settings: null,
-        features: { attendance: false, branches: false },
+        features: { attendance: true, branches: true },
         status: 'booting',       // booting | active | pending | blocked | unactivated
         online: navigator.onLine !== false,
         busy: false,
@@ -681,7 +681,7 @@
         root.setAttribute('data-state', 'home');
         root.setAttribute('data-attendance', state.features.attendance ? 'on' : 'off');
 
-        setActionEnabled(state.features.attendance);
+        setActionEnabled(state.features.attendance !== false);
     }
 
     function setActionEnabled(enabled) {
@@ -2307,9 +2307,16 @@
         });
 
         document.addEventListener('visibilitychange', function () {
-            if (!document.hidden && state.status === 'active') {
-                pushHeartbeat();
-                requestWakeLock();
+            if (!document.hidden) {
+                if (state.token && (state.status === 'active' || root.getAttribute('data-state') === 'home')) {
+                    setActionEnabled(true);
+                    renderClock();
+                    pushHeartbeat();
+                }
+
+                if (state.status === 'active') {
+                    requestWakeLock();
+                }
             }
         });
 

@@ -923,7 +923,10 @@ final class DeviceService
             ],
             'features' => [
                 'branches'   => \feature_enabled($customerId, 'branches'),
-                'attendance' => \feature_enabled($customerId, 'attendance'),
+                // A device that can authenticate as an active kiosk is, by
+                // definition, an attendance terminal. Never let a missing
+                // or stale feature row grey out its entry/exit actions.
+                'attendance' => true,
                 'employees'  => \feature_enabled($customerId, 'employees'),
             ],
             'settings'           => DeviceSetting::allTyped($deviceId),
