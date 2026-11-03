@@ -136,6 +136,13 @@ body.kiosk {
     letter-spacing: 1px;
 }
 
+/* The logo <img> starts hidden; .k-logo's display:grid would otherwise
+   override the browser's [hidden] rule and paint an empty purple tile. */
+.k-logo[hidden],
+[hidden] {
+    display: none !important;
+}
+
 .k-brand-text {
     min-width: 0;
 }
@@ -247,6 +254,10 @@ body.kiosk {
     display: flex;
     align-items: baseline;
     gap: 10px;
+    /* Time is always HH:MM:SS left-to-right, even inside the RTL page:
+       without this the flex row puts the seconds first (34: 04:34). */
+    direction: ltr !important;
+    justify-content: center;
 }
 
 .k-clock-seconds {
@@ -1158,21 +1169,41 @@ body.kiosk {
    Small screens (phone sized kiosk)
    ------------------------------------------------------------------- */
 @media (max-width: 760px) {
+    /* Entry/exit side by side: stacked full-width buttons pushed the exit
+       button below the phone viewport (body overflow is hidden). */
     .k-actions {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 12px;
     }
 
     .k-action {
-        min-height: clamp(110px, 20vh, 190px);
+        min-height: clamp(85px, 14vh, 120px) !important;
+        padding: 12px !important;
+        border-radius: 18px !important;
+    }
+
+    .k-action .k-action-icon {
+        width: 38px !important;
+        height: 38px !important;
+    }
+
+    .k-action .k-action-label {
+        font-size: clamp(20px, 3vh, 26px) !important;
+    }
+
+    /* The hint line under each label only eats scarce phone height. */
+    .k-action .k-action-hint {
+        display: none;
     }
 
     .k-clock-time {
-        font-size: clamp(46px, 13vh, 110px);
+        font-size: clamp(48px, 11vh, 84px) !important;
     }
 
     .k-top {
         flex-direction: column;
         align-items: flex-start;
+        padding: 10px 14px !important;
     }
 
     .k-top-meta {
