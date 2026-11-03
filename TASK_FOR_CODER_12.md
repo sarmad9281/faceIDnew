@@ -1,13 +1,14 @@
-# TASK FOR CODER - Fix Owner Panel Feature Routes 404 & Feature Matrix Form Parsing (Bug #12)
+# TASK FOR CODER - Fix Owner Panel Feature Routes 404, Feature Matrix Form Parsing & Telegram CSRF 419 (Task #12)
 
-## 🎯 گزارش مشکل کاربر:
-> ۱. «روش دوم اصلاح ریشه‌ای می‌خوام»
-> ۲. «مدیر می‌تونه وارد سایت بشه ولی هیچ دسترسی نداره»
-> ۳. خطای ۴۰۴ هنگام کلیک روی دکمه «مدیریت امکانات» یا ارسال فرم امکانات.
+## 🎯 گزارش مشکلات کاربر:
+> ۱. خطای ۴۰۴ هنگام کلیک روی دکمه «مدیریت امکانات» یا ارسال فرم امکانات در پنل مالک.
+> ۲. «مدیر می‌تونه وارد سایت بشه ولی هیچ دسترسی نداره».
+> ۳. خطای ۴۱۹ (توکن امنیتی نامعتبر / CSRF) هنگام ذخیره توکن ربات تلگرام در پنل مدیر:
+>    «توکن امنیتی فرم (CSRF) نامعتبر یا منقضی شده است. لطفاً به صفحه قبل برگردید، صفحه را دوباره بارگذاری کنید و فرم را مجدداً ارسال کنید.»
 
 ---
 
-## 🔍 ریشه‌یابی دقیق ۲ مشکل اساسی:
+## 🔍 ریشه‌یابی دقیق ۳ مشکل:
 
 ### مشکل اول: خطای ۴۰۴ به دلیل عدم تطابق آدرس‌ها
 در `routes/web.php` (خطوط ۱۱۶ تا ۱۲۴) مسیرهای زیر تعریف شده‌اند:
@@ -25,8 +26,7 @@
 
 ---
 
-### مشکل دوم (بسیار حیاتی): قطع شدن تمام دسترسی‌های مدیر پس از ذخیره فرم!
-**علت قطع شدن دسترسی‌های مدیر و خالی شدن پنل:**
+### مشکل دوم (حیاتی): قطع شدن تمام دسترسی‌های مدیر پس از ذخیره فرم!
 وقتی فرم در `views/owner/features/show.php` ارسال می‌شود، چک‌باکس‌ها با نام‌های آرایه‌ای هستند:
 `<input type="checkbox" name="features[attendance]" value="1">`
 `<input type="checkbox" name="features[employees]" value="1">`
@@ -60,17 +60,57 @@ $result = FeatureFlag::set($customerId, $key, $enabled, $actorUserId);
 **نتیجه این باگ:**
 کد به جای بررسی `$payload['features'][$key]`، به دنبال کلید متنی `'features[attendance]'` در سطح اول `$payload` می‌گشت! چون این کلید وجود نداشت، `$present` همیشه `false` می‌شد و در نتیجه **تمام امکانات مشتری بدون استثنا صفر (غیرفعال) شدند!**
 
-به محض اینکه مالک دکمه «ذخیره امکانات» را زد:
-۱. تمام دسترسی‌های مشتری (حضور و غیاب، پرسنل، شیفت‌ها، مرخصی‌ها، گزارش‌ها، شعب و...) در دیتابیس `is_enabled = 0` شدند.
-۲. کاربر به خطای ۴۰۴ منتقل شد.
-۳. و وقتی مدیر وارد حساب کاربری خود شد، هیچ دسترسی و منویی در پنل خود ندید!
+---
+
+### مشکل سوم (جدید): خطای ۴۱۹ در فرم ربات تلگرام و حقوق و دستمزد
+در فایل `app/Core/View.php` متغیر `$csrf` به صورت زیر تعریف شده است:
+```php
+'csrf' => static fn (): string => Csrf::field(),
+```
+و متد `Csrf::field()` یک تگ کامل HTML برمی‌گرداند:
+`<input type="hidden" name="_token" value="...">`
+
+در تمام فایل‌های پروژه (مانند `login.php`، `branches/index.php` و...) به درستی فقط نوشته شده است:
+`<?= $csrf() ?>`
+
+اما متأسفانه در فایل `views/manager/telegram/index.php` (خطوط ۶۵، ۱۰۰، ۱۰۴ و ۱۰۹) و `views/manager/payroll/index.php` (خطوط ۱۲۱، ۱۷۲، ۱۸۱، ۲۲۱ و ۲۸۹) به این شکل نوشته شده است:
+```html
+<input type="hidden" name="_token" value="<?= $csrf() ?>">
+```
+این کار باعث می‌شود در خروجی HTML تگ به صورت تو در تو رندر شود:
+`<input type="hidden" name="_token" value="<input type="hidden" name="_token" value="...">">`
+هنگامی که کاربر دکمه ذخیره را می‌زند، مرورگر مقدار توکن را به دلیل بسته‌شدن زودهنگام کوتیشن‌ها به صورت ناقص ارسال می‌کند (`_token: "<input type="`) و اعتبارسنجی CSRF بلافاصله با **خطای ۴۱۹ (توکن امنیتی نامعتبر)** رد می‌شود!
+
+همچنین در متد `Csrf::validate` در فایل `app/Core/Csrf.php`، جهت استحکام در برابر چنین اشتباهاتی، اگر توکن ارسالی با الگوی تگ HTML ارسال شده باشد باید مقدار واقعی استخراج شود.
 
 ---
 
 ## 🛠️ اقدامات لازم:
 
-### ۱. اصلاح `app/Services/FeatureService.php` (متد `applyMatrix`):
-پشتیبانی از آرایه تو در توی `features` در متد `applyMatrix`:
+### ۱. اصلاح `views/manager/telegram/index.php`:
+خط ۶۵ (و خطوط ۱۰۰، ۱۰۴، ۱۰۹) از:
+```html
+<input type="hidden" name="_token" value="<?= $csrf() ?>">
+```
+به:
+```html
+<?= $csrf() ?>
+```
+تغییر یابد.
+
+### ۲. اصلاح `views/manager/payroll/index.php`:
+خطوط ۱۲۱، ۱۷۲، ۱۸۱، ۲۲۱ و ۲۸۹ به همین ترتیب به `<?= $csrf() ?>` اصلاح شوند.
+
+### ۳. افزودن سازگاری در `app/Core/Csrf.php` (جهت اطمینان حداکثری):
+در متد `Csrf::validate(Request $request)`، در صورتی که توکن دریافتی شامل تگ HTML باشد، توکن خالص hex استخراج شود:
+```php
+if (is_string($token) && preg_match('/value=["\']([a-f0-9]{32,128})["\']/i', $token, $matches)) {
+    $token = $matches[1];
+}
+```
+
+### ۴. اصلاح `app/Services/FeatureService.php` (متد `applyMatrix`):
+پشتیبانی از آرایه تو در توی `features`:
 ```php
     public static function applyMatrix(int $customerId, array $payload, int $actorUserId = 0): array
     {
@@ -112,8 +152,8 @@ $result = FeatureFlag::set($customerId, $key, $enabled, $actorUserId);
     }
 ```
 
-### ۲. اصلاح `routes/web.php`:
-تعریف مسیرهای کامل برای هر دو الگوی URL:
+### ۵. اصلاح `routes/web.php`:
+ثبت روت‌های متناظر `/owner/customers/{uuid}/features` برای جلوگیری از خطای ۴۰۴:
 ```php
     // Features (پشتیبانی کامل از هر دو الگوی آدرس)
     $router->get('/owner/features', [FeatureController::class, 'index'],
@@ -131,9 +171,6 @@ $result = FeatureFlag::set($customerId, $key, $enabled, $actorUserId);
     $router->post('/owner/customers/{uuid}/features/toggle', [FeatureController::class, 'toggle'],
         ['auth', 'owner', 'csrf'], 'owner.customers.features.toggle');
 ```
-
-### ۳. بررسی `app/Controllers/Owner/FeatureController.php`:
-اطمینان از سازگاری متدها و ریدایرکت‌ها با هر دو آدرس بدون ایجاد خطای ۴۰۴.
 
 ---
 
