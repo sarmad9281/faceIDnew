@@ -25,20 +25,20 @@
    lives in localStorage and is only attached to requests by the page itself.
    ===================================================================== */
 
-const CACHE = 'sarmad-kiosk-v9';
+const CACHE = 'sarmad-kiosk-v10';
 // Keep the previous model cache available during upgrades; core installation
 // must not wait for large model downloads on slow mobile networks.
-const PREVIOUS_MODEL_CACHES = ['sarmad-kiosk-v8', 'sarmad-kiosk-v7'];
+const PREVIOUS_MODEL_CACHES = ['sarmad-kiosk-v9', 'sarmad-kiosk-v8', 'sarmad-kiosk-v7'];
 
 const CORE_SHELL = [
     './device',
     './device/offline',
     './assets/css/device.css',
-    './assets/js/device-queue.js?v=1.0.9',
-    './assets/js/device.js?v=1.0.9',
-    './assets/audio/entry.mp3?v=1.0.9',
-    './assets/audio/exit.mp3?v=1.0.9',
-    './assets/audio/error.mp3?v=1.0.9',
+    './assets/js/device-queue.js?v=1.1.0',
+    './assets/js/device.js?v=1.1.0',
+    './assets/audio/entry.mp3?v=1.1.0',
+    './assets/audio/exit.mp3?v=1.1.0',
+    './assets/audio/error.mp3?v=1.1.0',
     './assets/vendor/tfjs-1.7.4.min.js',
     './assets/vendor/face-api-0.22.2.min.js',
     './assets/js/face/face-engine.js',
