@@ -728,6 +728,10 @@
         flag(el.chipLoading, name === 'loading');
         flag(el.chipRecognizing, name === 'recognizing');
         flag(el.cameraRetry, name === 'captured');
+
+        if (el.cameraRetry) {
+            el.cameraRetry.hidden = name !== 'captured';
+        }
         flag(el.faceFrame, name === 'recognizing' || name === 'captured', 'is-locked');
         flag(el.faceFrame, name === 'guidance', 'is-warning');
 
@@ -1055,24 +1059,26 @@
         }
     }
 
-    /** Engine + gallery status for the settings drawer (never the vectors). */
+    /**
+     * Plain-language face status for the settings drawer (never the vectors).
+     *
+     * The drawer is read by the shop staff who run the device, not by
+     * engineers: engine name, backend, distance metric/threshold and sync
+     * internals only confused them, so the line now answers the two
+     * questions they actually have - is it ready, and for how many people.
+     */
     function faceStatusLine() {
         var engine = faceApi();
         var report = engine ? engine.status() : null;
         var gallery = currentGallery();
 
-        if (!report) {
-            return 'موتور چهره: بارگذاری نشد';
+        if (!report || !report.loaded) {
+            return 'در حال بارگذاری موتور هوش مصنوعی…';
         }
 
-        return [
-            'موتور: ' + report.engine + ' ' + (report.loaded ? '(آماده)' : '(بارگذاری‌نشده)'),
-            'بک‌اند: ' + (report.backend || '—'),
-            'آستانه: ' + report.metric + ' @ ' + report.match_threshold,
-            'کارمند هم‌گام‌شده: ' + (gallery && gallery.employees ? gallery.employees.length : 0),
-            'نسخه داده چهره: ' + (state.faceSyncVersion >= 0 ? state.faceSyncVersion : '—'),
-            'liveness: پیاده‌سازی نشده'
-        ].join(' | ');
+        var count = (gallery && gallery.employees ? gallery.employees.length : 0);
+
+        return 'آماده به‌کار (پرسنل ثبت‌شده: ' + count + ' نفر)';
     }
 
     function initials(name) {
