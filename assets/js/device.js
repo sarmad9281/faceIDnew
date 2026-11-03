@@ -991,7 +991,7 @@
     var voiceAudio = null;
     var voiceGeneration = 0;
     function audioPath(name) {
-        return SETUP.base.replace(/\/?$/, '/') + 'assets/audio/' + name + '.mp3?v=1.0.9';
+        return SETUP.base.replace(/\/?$/, '/') + 'assets/audio/' + name + '.mp3?v=1.1.0';
     }
     // Unlock on the employee's tap (some mobile browsers otherwise block an
     // asynchronous recognition result). Failure remains non-fatal.
