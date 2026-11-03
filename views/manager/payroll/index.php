@@ -118,7 +118,7 @@ $previewOrFrozen = $isFinal ? $items : $preview;
     <article class="card">
         <div class="card-head"><h2>دوره‌های حقوق</h2></div>
         <form method="post" action="<?= $e($url('/manager/payroll/period')) ?>">
-            <input type="hidden" name="_token" value="<?= $csrf() ?>">
+            <?= $csrf() ?>
             <div class="filters">
                 <label class="field"><span>از تاریخ</span><input type="date" name="date_from" class="ltr" value="<?= $e($engine['from']) ?>"></label>
                 <label class="field"><span>تا تاریخ</span><input type="date" name="date_to" class="ltr" value="<?= $e($engine['to']) ?>"></label>
@@ -169,7 +169,7 @@ $previewOrFrozen = $isFinal ? $items : $preview;
             </p>
             <?php if (!$isFinal): ?>
                 <form method="post" action="<?= $e($url('/manager/payroll/finalize')) ?>">
-                    <input type="hidden" name="_token" value="<?= $csrf() ?>">
+                    <?= $csrf() ?>
                     <input type="hidden" name="period_id" value="<?= $e((string) $period['id']) ?>">
                     <button type="submit" class="btn btn-primary">قطعی‌سازی دوره</button>
                 </form>
@@ -178,7 +178,7 @@ $previewOrFrozen = $isFinal ? $items : $preview;
                 </p>
             <?php else: ?>
                 <form method="post" action="<?= $e($url('/manager/payroll/revise')) ?>">
-                    <input type="hidden" name="_token" value="<?= $csrf() ?>">
+                    <?= $csrf() ?>
                     <input type="hidden" name="period_id" value="<?= $e((string) $period['id']) ?>">
                     <label class="field"><span>دلیل بازمحاسبه (الزامی برای Revision)</span><input type="text" name="reason" maxlength="500" placeholder="مثلاً: اصلاح ورود ۱۲ مهر"></label>
                     <button type="submit" class="btn btn-ghost">بازمحاسبه و ثبت Revision</button>
@@ -218,7 +218,7 @@ $previewOrFrozen = $isFinal ? $items : $preview;
     </div>
 
     <form method="post" action="<?= $e($url('/manager/payroll/profile')) ?>">
-        <input type="hidden" name="_token" value="<?= $csrf() ?>">
+        <?= $csrf() ?>
         <div class="filters">
             <label class="field">
                 <span>پرسنل</span>
@@ -286,7 +286,7 @@ $previewOrFrozen = $isFinal ? $items : $preview;
         <span class="badge">همین مقادیر در محاسبه تأخیر مؤثرند</span>
     </div>
     <form method="post" action="<?= $e($url('/manager/payroll/rules')) ?>">
-        <input type="hidden" name="_token" value="<?= $csrf() ?>">
+        <?= $csrf() ?>
         <div class="filters">
             <label class="field">
                 <span>واحد پول</span>

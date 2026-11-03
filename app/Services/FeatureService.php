@@ -111,15 +111,18 @@ final class FeatureService
      */
     public static function applyMatrix(int $customerId, array $payload, int $actorUserId = 0): array
     {
-        $changed   = [];
-        $unchanged = 0;
+        $changed     = [];
+        $unchanged   = 0;
+        $featuresMap = is_array($payload['features'] ?? null) ? $payload['features'] : [];
 
         foreach (Feature::catalogue() as $feature) {
             $key     = (string) $feature['feature_key'];
             $field   = 'features[' . $key . ']';
-            $present = array_key_exists($field, $payload) || array_key_exists($key, $payload);
+            $present = array_key_exists($key, $featuresMap)
+                || array_key_exists($field, $payload)
+                || array_key_exists($key, $payload);
 
-            $raw = $payload[$field] ?? $payload[$key] ?? null;
+            $raw = $featuresMap[$key] ?? $payload[$field] ?? $payload[$key] ?? null;
 
             if (!$present) {
                 // Master switch off for optional features (explicit "no").

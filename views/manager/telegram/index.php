@@ -62,7 +62,7 @@ $settings = $engine['settings'];
         <?php endif; ?>
 
         <form method="post" action="<?= $e($url('/manager/telegram')) ?>">
-            <input type="hidden" name="_token" value="<?= $csrf() ?>">
+            <?= $csrf() ?>
             <div class="filters">
                 <label class="field">
                     <span>Bot Token (برای تغییر پر کنید)</span>
@@ -97,16 +97,16 @@ $settings = $engine['settings'];
 
         <div class="row-actions" style="margin-top:12px">
             <form method="post" action="<?= $e($url('/manager/telegram/test')) ?>">
-                <input type="hidden" name="_token" value="<?= $csrf() ?>">
+                <?= $csrf() ?>
                 <button type="submit" class="btn btn-ghost btn-sm">ارسال پیام آزمایشی</button>
             </form>
             <form method="post" action="<?= $e($url('/manager/telegram/daily')) ?>">
-                <input type="hidden" name="_token" value="<?= $csrf() ?>">
+                <?= $csrf() ?>
                 <input type="hidden" name="date" value="<?= $e(date('Y-m-d')) ?>">
                 <button type="submit" class="btn btn-ghost btn-sm">ارسال گزارش امروز</button>
             </form>
             <form method="post" action="<?= $e($url('/manager/telegram/drain')) ?>">
-                <input type="hidden" name="_token" value="<?= $csrf() ?>">
+                <?= $csrf() ?>
                 <button type="submit" class="btn btn-ghost btn-sm">پردازش صف (Worker)</button>
             </form>
         </div>
