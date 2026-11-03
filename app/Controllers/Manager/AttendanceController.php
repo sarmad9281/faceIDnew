@@ -82,7 +82,8 @@ final class AttendanceController
             'statuses'        => AttendanceRecord::STATUSES,
             'origins'         => AttendanceRecord::SOURCES,
             'flags'           => AttendanceCalculator::flagLabels(),
-            'inside'          => $engine->currentlyInside($customerId, $filters['branch_id']),
+            'inside'          => $engine->currentlyInside($customerId, $filters['branch_id'], 500),
+            'insideTotal'     => $engine->countCurrentlyInside($customerId, $filters['branch_id']),
             'summary'         => $engine->daySummary($customerId, $today, $filters['branch_id']),
             'canManage'       => Capability::allows('attendance.manage'),
             'serverTime'      => date('Y-m-d H:i:s'),
@@ -114,13 +115,18 @@ final class AttendanceController
             'record_id'      => (int) $row['id'],
             'employee_id'    => (int) $row['employee_id'],
             'name'           => trim((string) $row['first_name'] . ' ' . (string) $row['last_name']),
+            'employee_code'  => (string) ($row['employee_code'] ?? ''),
+            'branch_name'    => (string) ($row['branch_name'] ?? ''),
+            'late_minutes'   => max(0, (int) ($row['late_minutes'] ?? 0)),
+            'status_label'   => AttendanceRecord::statusLabel((string) $row['status']),
             'entry_at'       => (string) $row['entry_at'],
             'entry_time'     => substr((string) $row['entry_at'], 11, 5),
             'inside_minutes' => max(0, (int) $row['inside_minutes']),
             'inside_label'   => AttendanceCalculator::minutesLabel((int) $row['inside_minutes'], false),
             'status'         => (string) $row['status'],
             'is_offline'     => (string) $row['source'] === 'device_offline',
-        ], $engine->currentlyInside($customerId, $branchId));
+        ], $engine->currentlyInside($customerId, $branchId, 500));
+        $total = $engine->countCurrentlyInside($customerId, $branchId);
 
         return Response::json([
             'success' => true,
@@ -130,10 +136,11 @@ final class AttendanceController
                 'summary' => $engine->daySummary($customerId, date('Y-m-d'), $branchId),
             ],
             'meta'    => [
-                'count'       => count($inside),
+                'count'       => $total,
+                'truncated'   => $total > count($inside),
                 'server_time' => date('Y-m-d H:i:s'),
             ],
-        ]);
+        ])->withHeader('Cache-Control', 'private, no-store');
     }
 
     /**

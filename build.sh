@@ -85,6 +85,7 @@ cd "$ROOT"
 EXCLUDES=(
     ".git/*" ".git*"
     "release/*"
+    "TASK_FOR_CODER*.md"
     "tests/node_modules/*"
     "storage/installed.lock"
     "storage/logs/*.log"
@@ -126,6 +127,9 @@ need ".htaccess"
 # package without it - or without the manifests - breaks every camera
 # page with HTTP 403 on Apache/DirectAdmin.
 need "assets/.htaccess"
+need "assets/audio/entry.mp3"
+need "assets/audio/exit.mp3"
+need "assets/audio/error.mp3"
 need "assets/models/face-api-1.0.0/tiny_face_detector_model-weights_manifest.json"
 need "assets/models/face-api-1.0.0/face_landmark_68_model-weights_manifest.json"
 need "assets/models/face-api-1.0.0/face_recognition_model-weights_manifest.json"
@@ -134,6 +138,7 @@ forbid_re '^project-source/' "package wraps everything in a project-source/ fold
 forbid_re '^\./'              "package entries start with ./"
 forbid "storage/installed.lock"
 forbid ".git/config"
+forbid_re '^TASK_FOR_CODER.*\.md$' "internal task files must not be shipped"
 forbid_re '^release/' "a previous release ZIP was packed inside this one"
 forbid_re '\.log$' "log files in the package"
 

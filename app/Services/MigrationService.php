@@ -75,6 +75,8 @@ final class MigrationService
      * @var array<int,array{table:string,column:string,definition:string,after:string}>
      */
     private const COLUMN_ADDITIONS = [
+        ['table' => 'telegram_settings', 'column' => 'api_base_url', 'definition' => 'VARCHAR(255) DEFAULT NULL', 'after' => 'chat_id'],
+        ['table' => 'telegram_settings', 'column' => 'proxy_url', 'definition' => 'VARCHAR(255) DEFAULT NULL', 'after' => 'api_base_url'],
         [
             'table'      => 'customers',
             'column'     => 'plan_name',

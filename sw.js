@@ -25,17 +25,20 @@
    lives in localStorage and is only attached to requests by the page itself.
    ===================================================================== */
 
-const CACHE = 'sarmad-kiosk-v8';
+const CACHE = 'sarmad-kiosk-v9';
 // Keep the previous model cache available during upgrades; core installation
 // must not wait for large model downloads on slow mobile networks.
-const PREVIOUS_MODEL_CACHE = 'sarmad-kiosk-v7';
+const PREVIOUS_MODEL_CACHES = ['sarmad-kiosk-v8', 'sarmad-kiosk-v7'];
 
 const CORE_SHELL = [
     './device',
     './device/offline',
     './assets/css/device.css',
-    './assets/js/device-queue.js',
-    './assets/js/device.js',
+    './assets/js/device-queue.js?v=1.0.9',
+    './assets/js/device.js?v=1.0.9',
+    './assets/audio/entry.mp3?v=1.0.9',
+    './assets/audio/exit.mp3?v=1.0.9',
+    './assets/audio/error.mp3?v=1.0.9',
     './assets/vendor/tfjs-1.7.4.min.js',
     './assets/vendor/face-api-0.22.2.min.js',
     './assets/js/face/face-engine.js',
@@ -70,7 +73,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys()
-            .then((keys) => Promise.all(keys.filter((key) => key.indexOf('sarmad-kiosk-') === 0 && key !== CACHE && key !== PREVIOUS_MODEL_CACHE).map((key) => caches.delete(key))))
+            .then((keys) => Promise.all(keys.filter((key) => key.indexOf('sarmad-kiosk-') === 0 && key !== CACHE && !PREVIOUS_MODEL_CACHES.includes(key)).map((key) => caches.delete(key))))
             .then(() => self.clients.claim())
     );
 });
@@ -82,7 +85,7 @@ self.addEventListener('message', (event) => {
         // Failures are isolated, so a partial download never prevents install.
         event.waitUntil(caches.open(CACHE).then((cache) =>
             Promise.all(MODEL_FILES.map((file) =>
-                cache.match(file).then((cached) => cached || caches.open(PREVIOUS_MODEL_CACHE).then((old) => old.match(file)))
+                cache.match(file).then((cached) => cached || previousModel(file))
                     .then((cached) => cached || fetch(file))
                     .then((response) => response && response.ok ? cache.put(file, response.clone()) : null)
                     .catch(() => null)
@@ -90,6 +93,11 @@ self.addEventListener('message', (event) => {
         ));
     }
 });
+
+function previousModel(request) {
+    return PREVIOUS_MODEL_CACHES.reduce((promise, name) => promise.then((found) =>
+        found || caches.open(name).then((cache) => cache.match(request))), Promise.resolve(null));
+}
 
 function isApi(url) {
     return url.pathname.indexOf('/api/') !== -1;
@@ -156,7 +164,7 @@ self.addEventListener('fetch', (event) => {
     // Static shell assets: cache first, then network (and remember it).
     // The face model weights are `.json` manifests plus extension-less shard
     // files, so /assets/models/ is cached by path as well.
-    const cacheable = /\.(css|js|json|png|jpg|jpeg|svg|webmanifest|woff2?)$/i.test(url.pathname)
+    const cacheable = /\.(css|js|json|png|jpg|jpeg|svg|webmanifest|mp3|woff2?)$/i.test(url.pathname)
         || url.pathname.indexOf('/assets/models/') !== -1;
 
     if (!cacheable) {
@@ -173,7 +181,7 @@ self.addEventListener('fetch', (event) => {
             }
 
             const model = url.pathname.indexOf('/assets/models/') !== -1;
-            return (model ? caches.open(PREVIOUS_MODEL_CACHE).then((cache) => cache.match(request)) : Promise.resolve(null)).then((oldModel) => {
+            return (model ? previousModel(request) : Promise.resolve(null)).then((oldModel) => {
                 if (oldModel) {
                     return oldModel;
                 }

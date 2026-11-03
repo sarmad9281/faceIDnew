@@ -330,6 +330,11 @@
             <span>تنظیمات اصلی، توکن و اختصاص شعبه دستگاه فقط از پنل مدیریت سرمد قابل تغییر است.</span>
         </p>
 
+        <div id="k-queue-tools" hidden>
+            <p>صف آفلاین: <strong id="k-queue-settings-count">0</strong> رویداد در انتظار</p>
+            <button type="button" class="k-btn k-btn-danger" id="k-queue-clear">پاک‌سازی صف آفلاین</button>
+            <p>فقط مسئول دستگاه: این کار همه رویدادهای ارسال‌نشده را برای همیشه حذف می‌کند.</p>
+        </div>
         <button type="button" class="k-btn k-btn-danger k-btn-lg" id="k-forget">حذف اعتبار محلی این دستگاه</button>
     </div>
 </aside>

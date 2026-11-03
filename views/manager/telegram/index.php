@@ -74,6 +74,16 @@ $settings = $engine['settings'];
                     <input type="text" name="telegram_chat_id" class="ltr" value="<?= $e($chatId) ?>" placeholder="-1001234567890">
                 </label>
                 <label class="field">
+                    <span>آدرس درگاه اختصاصی / پروکسی معکوس (اختیاری - برای سرورهای ایران)</span>
+                    <input type="url" name="api_base_url" class="ltr" maxlength="255" value="<?= $e($engine['settings']['api_base_url'] ?? '') ?>" placeholder="https://telegram-gateway.example.com">
+                    <span class="field-hint">درگاه باید مورد اعتماد باشد؛ توکن ربات و متن پیام را دریافت می‌کند. خالی یعنی تنظیم پیش‌فرض سرور.</span>
+                </label>
+                <label class="field">
+                    <span>آدرس پروکسی HTTP/SOCKS5 (اختیاری)</span>
+                    <input type="text" name="proxy_url" class="ltr" maxlength="255" value="<?= $e($engine['settings']['proxy_url'] ?? '') ?>" placeholder="socks5://proxy.example.com:1080">
+                    <span class="field-hint">فقط آدرس عمومی بدون نام کاربری و رمز عبور. خالی یعنی تنظیم پیش‌فرض سرور.</span>
+                </label>
+                <label class="field">
                     <span>ساعت گزارش روزانه</span>
                     <input type="time" name="daily_report_time" class="ltr" value="<?= $e($engine['dailyTime']) ?>">
                 </label>
@@ -95,6 +105,11 @@ $settings = $engine['settings'];
             <button type="submit" class="btn btn-primary">ذخیره تنظیمات</button>
         </form>
 
+        <?php if (!$engine['hasToken'] || empty($engine['settings']['chat_id'])): ?>
+            <p class="alert alert-warn">لطفاً ابتدا توکن ربات و شناسه چت را ذخیره کنید، سپس پیام آزمایشی ارسال نمایید.</p>
+        <?php else: ?>
+            <p class="muted small">پیام آزمایشی با تنظیمات ذخیره‌شده ارسال می‌شود؛ تغییرات جدید را ابتدا ذخیره کنید.</p>
+        <?php endif; ?>
         <div class="row-actions" style="margin-top:12px">
             <form method="post" action="<?= $e($url('/manager/telegram/test')) ?>">
                 <?= $csrf() ?>
