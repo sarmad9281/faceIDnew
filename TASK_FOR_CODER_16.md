@@ -14,9 +14,13 @@
 ### 1. Kiosk Persian Voice Feedback (`assets/js/device.js`, `sw.js`, `assets/audio/`)
 - **Objective:** When an employee clocks in or out, provide clear, pleasant spoken Persian audio feedback instead of (or in addition to) the WebAudio synth beep.
 - **Audio Prompts:**
-  - Entry success: "ورود شما ثبت شد" (or "صبح بخیر، ورود شما ثبت شد")
-  - Exit success: "خروج شما ثبت شد" (or "خسته نباشید، خروج شما ثبت شد")
-  - Face not recognized / Error: "چهره شناسایی نشد، لطفاً دوباره تلاش کنید"
+  - Entry success: "ورود ثبت شد" (short, clean, ~1 second)
+  - Exit success: "خروج ثبت شد" (short, clean, ~1 second)
+  - Face not recognized / Error: "چهره شناسایی نشد" (or retry chime)
+- **Audio Quality Note:**
+  - Standard multilingual AI TTS engines often mispronounce Persian vowels and sound unnatural. Keep phrases as short and natural as possible.
+  - Structure the audio system so that files under `assets/audio/` (`entry.mp3`, `exit.mp3`, `error.mp3`) can be easily replaced by the site owner with their own high-quality studio/native Persian voice recordings or custom chimes at any time.
+  - Maintain the existing pleasant WebAudio synth chime as a reliable instant fallback.
 - **Implementation Requirements:**
   - Place lightweight, pre-compressed audio files (`entry.mp3`, `exit.mp3`, `error.mp3`) under `assets/audio/`.
   - In `assets/js/device.js`:
