@@ -1,0 +1,7 @@
+{
+  "name": "sarmad-kiosk-tests",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {"offline": "node kiosk_offline_test.js && node service_worker_offline_test.js"},
+  "devDependencies": {"fake-indexeddb": "6.2.4", "jsdom": "27.4.0"}
+}

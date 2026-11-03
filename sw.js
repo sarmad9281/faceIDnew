@@ -6,13 +6,15 @@
      1. /api/ is NEVER cached. Employee data, attendance contracts and the
         device config are personal data; an offline cache would leak them to
         the next person standing at the tablet.
-     2. The device SHELL (offline page, css, js, icons, manifest) is cached, so
-        the tablet still shows a branded kiosk screen without internet.
-     3. Kiosk navigation requests try the network first and fall back to the
-        cached offline shell - so a device that lost its connection never
-        shows the browser's "no internet" dinosaur. Navigations outside the
-        kiosk are left untouched, so the public site and panels keep the
-        browser's normal offline behaviour instead of showing kiosk copy.
+     2. The REAL device shell (./device, css, js, icons, manifest) is cached,
+        so an already activated tablet can reopen the working kiosk without
+        internet. The static offline page is only a last-resort explanation
+        for a browser that has no cached kiosk shell at all.
+     3. Kiosk navigation requests try the network first and then fall back to
+        the cached REAL kiosk; only if that is unavailable do they use the
+        static offline page. Navigations outside the kiosk are left
+        untouched, so the public site and panels keep the browser's normal
+        offline behaviour instead of showing kiosk copy.
      4. Only same-origin GET requests are handled.
      5. Stage 5: the face engine and its model weights are cached as well, so a
         device that loses internet keeps recognising faces with the LOCAL model
@@ -23,9 +25,10 @@
    lives in localStorage and is only attached to requests by the page itself.
    ===================================================================== */
 
-const CACHE = 'sarmad-kiosk-v6';
+const CACHE = 'sarmad-kiosk-v7';
 
 const SHELL = [
+    './device',
     './device/offline',
     './assets/css/device.css',
     './assets/js/device-queue.js',
@@ -34,6 +37,18 @@ const SHELL = [
     './assets/vendor/face-api-0.22.2.min.js',
     './assets/js/face/face-engine.js',
     './assets/js/face/face-store.js',
+    // Both supported detectors and the shared landmark/recognition networks.
+    // Installing the new worker must not discard the only cached model.
+    './assets/models/face-api-1.0.0/tiny_face_detector_model-weights_manifest.json',
+    './assets/models/face-api-1.0.0/tiny_face_detector_model-shard1',
+    './assets/models/face-api-1.0.0/ssd_mobilenetv1_model-weights_manifest.json',
+    './assets/models/face-api-1.0.0/ssd_mobilenetv1_model-shard1',
+    './assets/models/face-api-1.0.0/ssd_mobilenetv1_model-shard2',
+    './assets/models/face-api-1.0.0/face_landmark_68_model-weights_manifest.json',
+    './assets/models/face-api-1.0.0/face_landmark_68_model-shard1',
+    './assets/models/face-api-1.0.0/face_recognition_model-weights_manifest.json',
+    './assets/models/face-api-1.0.0/face_recognition_model-shard1',
+    './assets/models/face-api-1.0.0/face_recognition_model-shard2',
     './assets/icons/icon-192.png',
     './assets/icons/icon-512.png',
     './assets/icons/maskable-512.png',
@@ -50,7 +65,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys()
-            .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+            .then((keys) => Promise.all(keys.filter((key) => key.indexOf('sarmad-kiosk-') === 0 && key !== CACHE).map((key) => caches.delete(key))))
             .then(() => self.clients.claim())
     );
 });
@@ -77,7 +92,7 @@ function isDeviceNavigation(url) {
     if (relativePath.indexOf(scopePath) === 0) {
         relativePath = relativePath.slice(scopePath.length);
     } else {
-        relativePath = relativePath.replace(/^\/+/, '');
+        return false;
     }
 
     relativePath = relativePath.replace(/\/+$/, '');
@@ -99,7 +114,8 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Kiosk navigations: network first, offline shell as the fallback.
+    // Kiosk navigations: network first, then the cached REAL kiosk. The
+    // static offline page is only for a browser with no cached kiosk shell.
     // Other pages are deliberately not intercepted here.
     if (request.mode === 'navigate') {
         if (!isDeviceNavigation(url)) {
@@ -108,12 +124,14 @@ self.addEventListener('fetch', (event) => {
 
         event.respondWith(
             fetch(request).catch(() =>
-                caches.match('./device/offline').then((cached) =>
-                    cached || new Response('آفلاین', {
-                        status: 503,
-                        headers: { 'Content-Type': 'text/html; charset=utf-8' }
-                    })
-                )
+                caches.open(CACHE).then((cache) => cache.match('./device'))
+                    .then((cachedDevice) => cachedDevice || caches.open(CACHE).then((cache) => cache.match('./device/offline')))
+                    .then((cached) =>
+                        cached || new Response('آفلاین', {
+                            status: 503,
+                            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+                        })
+                    )
             )
         );
 
@@ -130,8 +148,11 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // Ignore version parameters only for the explicit precached files; do not
+    // conflate query-dependent images or other resources.
+    const shellAsset = SHELL.some((item) => new URL(item, self.registration.scope).pathname === url.pathname);
     event.respondWith(
-        caches.match(request).then((cached) => {
+        caches.open(CACHE).then((cache) => cache.match(request, { ignoreSearch: shellAsset })).then((cached) => {
             if (cached) {
                 return cached;
             }
@@ -140,7 +161,8 @@ self.addEventListener('fetch', (event) => {
                 if (response && response.ok) {
                     const copy = response.clone();
 
-                    caches.open(CACHE).then((cache) => cache.put(request, copy));
+                    return caches.open(CACHE).then((cache) => cache.put(request, copy))
+                        .catch(() => {}).then(() => response);
                 }
 
                 return response;

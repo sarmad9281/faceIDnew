@@ -198,7 +198,9 @@
         function write(items) {
             var list = (items || []).slice(-max);
 
-            storage.write(list);
+            if (storage.write(list) === false) {
+                return null;
+            }
             listeners.forEach(function (listener) {
                 listener(list.length);
             });
@@ -227,10 +229,12 @@
                     }
                 }
 
+                // Do not discard older unsent attendance when the queue is full.
+                if (items.length >= max) {
+                    return null;
+                }
                 items.push(row);
-                write(items);
-
-                return row;
+                return write(items) ? row : null;
             },
 
             count: function () {
@@ -245,7 +249,10 @@
             applyResults: function (records) {
                 var result = applyResults(read(), records);
 
-                write(result.kept);
+                if (!write(result.kept)) {
+                    // Keep the persisted queue until a later successful write.
+                    result.kept = read();
+                }
 
                 return result;
             },

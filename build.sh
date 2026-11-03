@@ -85,6 +85,7 @@ cd "$ROOT"
 EXCLUDES=(
     ".git/*" ".git*"
     "release/*"
+    "tests/node_modules/*"
     "storage/installed.lock"
     "storage/logs/*.log"
     "storage/cache/*.json"
