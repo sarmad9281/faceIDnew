@@ -166,7 +166,7 @@ final class Url
 
     public static function asset(string $path): string
     {
-        $version = (string) Config::get('app.version', '1.0.0');
+        $version = (string) Config::get('app.version', '1.0.1');
 
         return self::to('/assets/' . ltrim($path, '/')) . '?v=' . rawurlencode($version);
     }

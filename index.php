@@ -7,7 +7,7 @@
  * protected by .htaccess rules + PHP guards.
  *
  * @author  SARMAD
- * @version 1.0.0
+ * @version 1.0.1
  */
 declare(strict_types=1);
 
