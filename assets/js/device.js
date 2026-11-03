@@ -192,9 +192,11 @@
         }
 
         var url = '/face-data' + (force ? '?refresh=1' : '');
+        var token = state.token;
+        var deviceId = deviceIdFromCredential();
 
         return api(url, { method: 'GET' }).then(function (payload) {
-            if (!payload.success) {
+            if (!payload.success || state.token !== token || state.status !== 'active' || deviceIdFromCredential() !== deviceId) {
                 return false;
             }
 
@@ -218,7 +220,10 @@
                 return true;
             }
 
-            return store.write(deviceIdFromCredential(), dataset).then(function () {
+            return store.write(deviceId, dataset).then(function () {
+                if (state.token !== token || state.status !== 'active' || deviceIdFromCredential() !== deviceId) {
+                    return false;
+                }
                 state.faceGallery = dataset;
                 state.faceSyncVersion = parseInt(dataset.version, 10) || 0;
 
@@ -242,6 +247,51 @@
         }
 
         return null;
+    }
+
+    /**
+     * Load this device's persisted descriptor gallery into memory.
+     *
+     * FaceStore.cached() only sees the copy already held by this page. After
+     * an offline refresh there is no such copy yet, even though IndexedDB
+     * still has the complete gallery from the last successful sync.
+     */
+    function loadCachedGallery() {
+        var existing = currentGallery();
+
+        if (existing) {
+            return Promise.resolve(existing);
+        }
+
+        var store = faceStore();
+        var deviceId = deviceIdFromCredential();
+        var token = state.token;
+
+        if (!store || !deviceId || typeof store.read !== 'function') {
+            return Promise.resolve(null);
+        }
+
+        return store.read(deviceId).then(function (cached) {
+            if (state.token !== token || state.status !== 'active' || deviceIdFromCredential() !== deviceId) {
+                return null;
+            }
+            if (state.faceGallery) {
+                return state.faceGallery;
+            }
+            if (cached && cached.employees && cached.employees.length) {
+                state.faceGallery = cached;
+
+                if (state.faceSyncVersion < 0) {
+                    state.faceSyncVersion = parseInt(cached.version, 10) || 0;
+                }
+
+                return cached;
+            }
+
+            return null;
+        }, function () {
+            return null;
+        });
     }
 
     /** Load the model ONCE per page load (a tablet must not reload it per attempt). */
@@ -284,9 +334,7 @@
 
         var store = faceStore();
 
-        if (store) {
-            store.clearAll();
-        }
+        return store ? store.clearAll() : Promise.resolve();
     }
 
     /* -----------------------------------------------------------------
@@ -371,6 +419,7 @@
      * ----------------------------------------------------------------*/
     var credentials = {
         save: function (token, meta) {
+            clearCachedConfig();
             try {
                 window.localStorage.setItem(SETUP.storageKey, JSON.stringify({
                     token: token,
@@ -404,6 +453,7 @@
         clear: function () {
             try {
                 window.localStorage.removeItem(SETUP.storageKey);
+                window.localStorage.removeItem(SETUP.storageKey + '_config');
             } catch (error) {
                 /* ignore */
             }
@@ -411,6 +461,45 @@
             state.token = null;
         }
     };
+
+    /**
+     * Read the last successful device config for the CURRENT activation.
+     * The server config contains no device token and no face descriptors;
+     * those remain in their separate credential and IndexedDB stores.
+     */
+    function readCachedConfig() {
+        try {
+            var raw = window.localStorage.getItem(SETUP.storageKey + '_config');
+            var cachedConfig = raw ? JSON.parse(raw) : null;
+
+            if (!cachedConfig || typeof cachedConfig !== 'object' || Array.isArray(cachedConfig)) {
+                return null;
+            }
+
+            var credentialDeviceId = deviceIdFromCredential();
+            var configDeviceId = cachedConfig.device && cachedConfig.device.id
+                ? parseInt(cachedConfig.device.id, 10)
+                : 0;
+
+            if (!credentialDeviceId || !configDeviceId || credentialDeviceId !== configDeviceId || cachedConfig.device.status !== 'active') {
+                clearCachedConfig();
+
+                return null;
+            }
+
+            return cachedConfig;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function clearCachedConfig() {
+        try {
+            window.localStorage.removeItem(SETUP.storageKey + '_config');
+        } catch (error) {
+            /* ignore */
+        }
+    }
 
     /* -----------------------------------------------------------------
      * Offline queue (stage 6/7 - real sync)
@@ -439,10 +528,11 @@
             try {
                 window.localStorage.setItem(SETUP.queueKey, JSON.stringify(items));
             } catch (error) {
-                /* storage full or blocked: the punch stays in memory only */
+                return false; // Never claim an unsaved punch was queued.
             }
 
             renderQueue();
+            return true;
         }
     }, { max: window.SarmadDeviceQueue.MAX_ITEMS });
 
@@ -665,6 +755,7 @@
     }
 
     function showBlocked(code, message) {
+        clearCachedConfig();
         state.status = 'blocked';
         state.blockedCode = code;
         hideBoot();
@@ -714,8 +805,12 @@
                 return;
             }
 
-            return syncFaceData(false).then(function () {
-                startFaceLoop();
+            return loadCachedGallery().then(function () {
+                return state.online ? syncFaceData(false) : false;
+            }).then(function () {
+                if (state.status === 'active' && root.getAttribute('data-state') === 'camera:' + action) {
+                    startFaceLoop();
+                }
             });
         });
     }
@@ -966,12 +1061,19 @@
             }
 
             credentials.save(payload.data.token, payload.data.device);
-            wipeFaceData();
-            applyConfig(payload.data.config);
-            only(null);
-            showHome();
-            startHeartbeat();
-            pushHeartbeat();
+            // Finish clearing the previous activation before fetching new faces.
+            wipeFaceData().then(function () {
+                applyConfig(payload.data.config);
+                only(null);
+                showHome();
+                startHeartbeat();
+                pushHeartbeat();
+                ensureEngine().then(function (report) {
+                    if (report.ok) {
+                        return syncFaceData(false);
+                    }
+                });
+            });
         });
     }
 
@@ -987,6 +1089,10 @@
         state.settings = config.settings || {};
         state.features = config.features || state.features;
         state.lastSeen = config.device ? config.device.last_seen_at : null;
+
+        try {
+            window.localStorage.setItem(SETUP.storageKey + '_config', JSON.stringify(config));
+        } catch (e) { /* ignore */ }
 
         var customer = config.customer || {};
         var branch = config.branch || null;
@@ -1051,7 +1157,8 @@
         state.faceReady = !!(engine && engine.isReady());
 
         /* A cached gallery is what keeps the kiosk recognising faces while the
-           internet is down. */
+           internet is down. cached() covers the in-memory copy; after a page
+           refresh the persisted IndexedDB copy must be read explicitly. */
         var store = faceStore();
 
         if (store) {
@@ -1096,6 +1203,14 @@
 
         state.settings = settings;
         state.cameraFacing = settings.camera_facing || 'user';
+
+        if (state.config) {
+            state.config.settings = settings;
+
+            try {
+                window.localStorage.setItem(SETUP.storageKey + '_config', JSON.stringify(state.config));
+            } catch (e) { /* ignore */ }
+        }
 
         if (el.setSound) {
             el.setSound.checked = !!settings.success_sound;
@@ -1144,6 +1259,7 @@
                 applyConfig(payload.data);
                 showHome();
                 startHeartbeat();
+                syncQueue('boot');
 
                 /* Warm the engine and pull the gallery in the background so the
                    first employee to walk up does not wait for a 13 MB model. */
@@ -1174,6 +1290,28 @@
                 showBlocked(code, payload.message);
 
                 return false;
+            }
+
+            if (code === 'NETWORK_ERROR') {
+                var cachedConfig = readCachedConfig();
+
+                if (cachedConfig) {
+                    applyConfig(cachedConfig);
+                    setOnline(false);
+
+                    /* An already activated kiosk keeps attendance available
+                       offline; queued punches are replayed by heartbeat and
+                       by the browser online event after reconnect. */
+                    state.features.attendance = true;
+                    showHome();
+                    setActionEnabled(true);
+                    startHeartbeat();
+
+                    loadCachedGallery();
+                    ensureEngine();
+
+                    return true;
+                }
             }
 
             showActivation(payload.message || 'ارتباط با سرور برقرار نشد.', code);
@@ -1337,9 +1475,8 @@
 
             setCameraState('guidance', HINTS.guidance);
 
-            /* The loop is already running from showCamera() and picks the
-               stream up as soon as the first frames arrive. */
-            startFaceLoop();
+            /* showCamera starts the loop only after model and gallery load;
+               it will pick up this stream once frames are available. */
         }).catch(function (error) {
             var name = String(error && error.name ? error.name : error);
 
@@ -1628,18 +1765,18 @@
         if (!state.online) {
             /* Offline: only a real match may enter the queue - a face that was
                not matched is never turned into a punch. */
-            enqueueOffline(action, requestId, outcome, extra);
+            var storedOffline = enqueueOffline(action, requestId, outcome, extra);
             setOnline(false);
-            finishRecognition(action, outcome, extra, 'offline', localMessage);
+            finishRecognition(action, outcome, extra, 'offline', localMessage, null, storedOffline);
 
             return;
         }
 
         api('/recognition-result', { body: payload }).then(function (response) {
             if (response.code === 'NETWORK_ERROR') {
-                enqueueOffline(action, requestId, outcome, extra);
+                var storedOffline = enqueueOffline(action, requestId, outcome, extra);
                 setOnline(false);
-                finishRecognition(action, outcome, extra, 'offline', localMessage);
+                finishRecognition(action, outcome, extra, 'offline', localMessage, null, storedOffline);
 
                 return;
             }
@@ -1688,9 +1825,6 @@
 
         if (stored) {
             text(el.queueCount, 'در صف ارسال: ' + queue.count());
-            showNotice('ثبت آفلاین',
-                'ارتباط با سرور برقرار نیست؛ ورود/خروج شما در صف ذخیره شد و پس از برقراری ارتباط به‌صورت خودکار ثبت می‌شود.',
-                6000);
         }
 
         return stored;
@@ -1700,11 +1834,57 @@
      * Screen decision for every documented outcome. Nothing is faked: a face
      * that was not matched never reaches the success path.
      */
-    function finishRecognition(action, outcome, extra, mode, localMessage, response) {
+    function finishRecognition(action, outcome, extra, mode, localMessage, response, queued) {
         var code = (response && response.code) || outcome;
 
         if (code === 'FACE_MATCHED' && response && response.data && response.data.employee) {
             submitAttendance(action, response.data);
+
+            return;
+        }
+
+        if (mode === 'offline' && code === 'FACE_MATCHED' && extra && extra.employee_id) {
+            if (!queued) {
+                closeCamera();
+                showError('storage', 'تردد ذخیره نشد', 'حافظه محلی در دسترس نیست یا صف پر است. لطفاً با مسئول مجموعه تماس بگیرید.', 7000);
+                return;
+            }
+
+            var gallery = currentGallery();
+            var localEmployee = null;
+
+            if (gallery && gallery.employees) {
+                for (var index = 0; index < gallery.employees.length; index += 1) {
+                    if (parseInt(gallery.employees[index].employee_id, 10) === parseInt(extra.employee_id, 10)) {
+                        localEmployee = gallery.employees[index];
+                        break;
+                    }
+                }
+            }
+
+            var offlineNow = new Date();
+            var offlineOperation = action === 'entry' ? 'ورود' : 'خروج';
+            var offlineName = localEmployee
+                ? (localEmployee.full_name || ((localEmployee.first_name || '') + ' ' + (localEmployee.last_name || '')).trim())
+                : '';
+
+            closeCamera();
+            renderQueue();
+            showSuccess({
+                title: offlineOperation + ' در صف ارسال ثبت شد',
+                message: 'ارتباط با سرور برقرار نیست؛ پس از اتصال مجدد، تردد به‌صورت خودکار هم‌گام می‌شود.',
+                employee: {
+                    full_name: offlineName,
+                    employee_code: localEmployee ? (localEmployee.employee_code || '') : '',
+                    position: localEmployee ? (localEmployee.position || '') : '',
+                    photo_url: ''
+                },
+                facts: [
+                    { label: 'نوع عملیات', value: offlineOperation },
+                    { label: 'ساعت', value: pad(offlineNow.getHours()) + ':' + pad(offlineNow.getMinutes()) + ':' + pad(offlineNow.getSeconds()) },
+                    { label: 'وضعیت', value: 'در صف ارسال' }
+                ]
+            });
 
             return;
         }
@@ -1884,9 +2064,16 @@
                     text(el.queueCount, 'در صف ارسال: ' + queue.count());
                 }
 
-                showNotice('ثبت آفلاین',
-                    'ارتباط با سرور قطع شد؛ این ' + operation + ' در صف ذخیره شد و در اولین هم‌گام‌سازی ثبت می‌شود.',
-                    6000);
+                if (stored) {
+                    showSuccess({
+                        title: operation + ' در صف ارسال ثبت شد',
+                        message: 'پس از اتصال مجدد، تردد هم‌گام و توسط سرور بررسی می‌شود.',
+                        employee: employee,
+                        facts: [{ label: 'وضعیت', value: 'در صف ارسال' }]
+                    });
+                } else {
+                    showError('storage', 'تردد ذخیره نشد', 'حافظه محلی در دسترس نیست یا صف پر است. لطفاً با مسئول مجموعه تماس بگیرید.', 7000);
+                }
 
                 return;
             }

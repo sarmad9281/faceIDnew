@@ -34,6 +34,9 @@
         synced_at: null
     };
 
+    // An older asynchronous read must not restore data after a write or wipe.
+    var generation = 0;
+
     function supported() {
         return typeof window.indexedDB !== 'undefined';
     }
@@ -70,6 +73,7 @@
      * @returns {Promise<{version:number,model_version:string,employees:Array,device_id:number}|null>}
      */
     function read(deviceId) {
+        var startedAt = generation;
         return open().then(function (db) {
             return new Promise(function (resolve) {
                 var tx = db.transaction(STORE, 'readonly');
@@ -78,7 +82,7 @@
                 request.onsuccess = function () {
                     var value = request.result;
 
-                    if (value && value.device_id === deviceId) {
+                    if (startedAt === generation && value && value.device_id === deviceId) {
                         memory = value;
 
                         resolve(value);
@@ -99,6 +103,7 @@
      * remove the old vectors).
      */
     function write(deviceId, dataset) {
+        generation += 1;
         var value = {
             device_id: deviceId,
             version: parseInt(dataset.version, 10) || 0,
@@ -135,6 +140,7 @@
     }
 
     function clear(deviceId) {
+        generation += 1;
         memory = { version: -1, model_version: '', employees: [], synced_at: null };
 
         if (!supported()) {
@@ -157,6 +163,7 @@
 
     /** Emergency wipe (used when the device is revoked / forget is pressed). */
     function clearAll() {
+        generation += 1;
         memory = { version: -1, model_version: '', employees: [], synced_at: null };
 
         if (!supported()) {

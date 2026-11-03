@@ -2,9 +2,10 @@
 /**
  * SARMAD Attendance - offline shell (stage 4).
  *
- * Cached by sw.js and shown when a navigation request can not reach the server.
- * It renders NO customer data (there is nothing to leak on a shared tablet) and
- * keeps the kiosk look so the device never falls back to the browser error page.
+ * Cached by sw.js as the LAST-RESORT screen: it is shown only when the real
+ * cached kiosk shell is unavailable (normally before first activation). An
+ * already activated device reopens ./device itself while offline. It renders
+ * NO customer data and keeps the kiosk look instead of a browser error page.
  *
  * @var callable $e
  */
@@ -14,8 +15,7 @@
         <div class="k-activate-logo">SA</div>
         <h1>ارتباط دستگاه با سرور قطع است</h1>
         <p>
-            این صفحه نسخه آفلاین دستگاه حضور و غیاب است. به‌محض برقراری ارتباط، دستگاه به‌صورت خودکار به صفحه اصلی
-            برمی‌گردد و ثبت ورود و خروج ادامه پیدا می‌کند. هیچ اطلاعات پرسنلی روی این دستگاه ذخیره نشده است.
+            دستگاه در انتظار اتصال اولیه به اینترنت جهت فعال‌سازی و دریافت اطلاعات چهره است. پس از یک‌بار فعال‌سازی آنلاین، کیوسک در زمان قطعی اینترنت نیز به ثبت تردد ادامه خواهد داد.
         </p>
 
         <p class="k-banner k-banner-offline" style="display:flex">
