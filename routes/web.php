@@ -112,15 +112,22 @@ return static function (Router $router): void {
     $router->post('/owner/customers/{uuid}/logo', [OwnerCustomerController::class, 'logo'],
         ['auth', 'owner', 'csrf'], 'owner.customers.logo');
 
-    // Features
+    // Features (both URL shapes are supported: feature-first and the
+    // customer-first links used by the customer/manager screens).
     $router->get('/owner/features', [FeatureController::class, 'index'],
         ['auth', 'owner'], 'owner.features');
     $router->get('/owner/features/{uuid}', [FeatureController::class, 'show'],
         ['auth', 'owner'], 'owner.features.show');
+    $router->get('/owner/customers/{uuid}/features', [FeatureController::class, 'show'],
+        ['auth', 'owner'], 'owner.customers.features');
     $router->post('/owner/features/{uuid}', [FeatureController::class, 'update'],
         ['auth', 'owner', 'csrf'], 'owner.features.update');
+    $router->post('/owner/customers/{uuid}/features', [FeatureController::class, 'update'],
+        ['auth', 'owner', 'csrf'], 'owner.customers.features.update');
     $router->post('/owner/features/{uuid}/toggle', [FeatureController::class, 'toggle'],
         ['auth', 'owner', 'csrf'], 'owner.features.toggle');
+    $router->post('/owner/customers/{uuid}/features/toggle', [FeatureController::class, 'toggle'],
+        ['auth', 'owner', 'csrf'], 'owner.customers.features.toggle');
 
     // Managers
     $router->get('/owner/managers', [OwnerManagerController::class, 'index'],
