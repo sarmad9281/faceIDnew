@@ -136,21 +136,8 @@ final class TelegramService
             'is_active'         => $this->flag($input['is_active'] ?? ($existing['is_active'] ?? 0)),
         ];
 
-        // Optional transport settings require the owner-run schema migration.
-        foreach (['api_base_url', 'proxy_url'] as $field) {
-            if (!array_key_exists($field, $input)) continue;
-            $value = trim((string) $input[$field]);
-            if ($value !== '' && !$this->validTransportUrl($value, $field === 'proxy_url')) {
-                return ['ok' => false, 'code' => 'TELEGRAM_TRANSPORT_INVALID', 'message' => 'آدرس درگاه یا پروکسی معتبر نیست؛ از آدرس عمومی بدون نام کاربری و رمز عبور استفاده کنید.', 'data' => []];
-            }
-            if (!array_key_exists($field, $existing)) {
-                if ($value === '') continue;
-                if ((int) ($existing['id'] ?? 0) > 0 || !(new MigrationService())->columnExists('telegram_settings', $field)) {
-                    return ['ok' => false, 'code' => 'MIGRATION_REQUIRED', 'message' => 'ابتدا به‌روزرسانی ساختار پایگاه داده را از پنل مالک اجرا کنید.', 'data' => []];
-                }
-            }
-            $data[$field] = $value !== '' ? $value : null;
-        }
+        // Transport is controlled only by server configuration. Legacy
+        // per-customer columns are retained but never changed or used here.
 
         // The token is only replaced when a NEW value is typed; an empty field
         // means "keep the stored token", so the panel never has to echo it back.
@@ -471,14 +458,25 @@ final class TelegramService
      * Transport
      * ==================================================================*/
 
+    /** Whether a custom shared gateway is configured (not a connectivity test). */
+    public function hasSharedGateway(): bool
+    {
+        $base = trim((string) Config::get('telegram.api_base_url', ''));
+        return $base !== '' && $this->validTransportUrl($base, false)
+            && strtolower((string) parse_url($base, PHP_URL_HOST)) !== 'api.telegram.org';
+    }
+
     /**
+     * @param array<string,mixed> $settings Legacy parameter; transport overrides are ignored.
      * @return array{ok:bool,status:int,message_id:?string,error:?string,error_code:?string}
      */
     public function send(string $token, string $chatId, string $text, array $settings = []): array
     {
-        $base = trim((string) ($settings['api_base_url'] ?? '')) ?: trim((string) Config::get('telegram.api_base_url', 'https://api.telegram.org'));
+        // Keep the fourth argument for compatibility with older callers, but
+        // never let saved customer settings override the shared gateway.
+        $base = trim((string) Config::get('telegram.api_base_url', 'https://api.telegram.org'));
         $base = $base !== '' ? $base : 'https://api.telegram.org';
-        $proxy = trim((string) ($settings['proxy_url'] ?? '')) ?: trim((string) Config::get('telegram.proxy', ''));
+        $proxy = trim((string) Config::get('telegram.proxy', ''));
         if (!$this->validTransportUrl($base, false) || ($proxy !== '' && !$this->validTransportUrl($proxy, true))) {
             return ['ok' => false, 'status' => 0, 'message_id' => null, 'error' => 'Invalid public gateway or proxy URL', 'error_code' => 'TELEGRAM_TRANSPORT_INVALID'];
         }
@@ -749,7 +747,7 @@ final class TelegramService
         $this->log($customerId, 'telegram.test', $chatId, 'failed', 0, 1, $answer['error_code'], $answer['error']);
 
         return ['ok' => false, 'code' => (string) $answer['error_code'], 'message' => $answer['error_code'] === 'TELEGRAM_NETWORK_ERROR' || $answer['status'] === 0
-            ? 'خطا در برقراری ارتباط با سرور تلگرام: ' . $answer['error'] . '. در صورتی که هاست در ایران است، نیاز به تنظیم آدرس پروکسی معکوس (Reverse Proxy) یا پروکسی سرور دارید.'
+            ? 'خطا در برقراری ارتباط با سرور تلگرام: ' . $answer['error'] . '. لطفاً از مدیر سامانه بخواهید تنظیمات درگاه ارتباطی سرور را بررسی کند.'
             : 'ارسال آزمایشی ناموفق بود: ' . $answer['error']];
     }
 

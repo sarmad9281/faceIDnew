@@ -191,7 +191,7 @@ return [
      * it is stored separately (device_event_at), validated and clamped.
      * ----------------------------------------------------------------*/
     // Optional trusted public Telegram gateway/proxy. The gateway sees the
-    // bot token and messages. Per-customer settings override these defaults.
+    // bot token and messages. These settings apply to every customer.
     'telegram' => [
         'api_base_url' => 'https://api.telegram.org',
         'proxy' => '', // e.g. socks5://proxy.example.com:1080 (no credentials)
