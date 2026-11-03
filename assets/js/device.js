@@ -178,7 +178,11 @@
     function deviceIdFromCredential() {
         var stored = credentials.load();
 
-        return stored && stored.device_id ? parseInt(stored.device_id, 10) : 0;
+        if (stored && stored.device_id) {
+            return parseInt(stored.device_id, 10) || 0;
+        }
+        return stored && state.config && state.config.device
+            ? (parseInt(state.config.device.id, 10) || 0) : 0;
     }
 
     /**
@@ -419,7 +423,11 @@
      * ----------------------------------------------------------------*/
     var credentials = {
         save: function (token, meta) {
-            clearCachedConfig();
+            var old = credentials.load();
+            var newId = meta && meta.id ? parseInt(meta.id, 10) : 0;
+            if (old && old.device_id && newId && parseInt(old.device_id, 10) !== newId) {
+                clearCachedConfig();
+            }
             try {
                 window.localStorage.setItem(SETUP.storageKey, JSON.stringify({
                     token: token,
@@ -472,7 +480,8 @@
             var raw = window.localStorage.getItem(SETUP.storageKey + '_config');
             var cachedConfig = raw ? JSON.parse(raw) : null;
 
-            if (!cachedConfig || typeof cachedConfig !== 'object' || Array.isArray(cachedConfig)) {
+            if (!cachedConfig || typeof cachedConfig !== 'object' || Array.isArray(cachedConfig)
+                || !(cachedConfig.customer || cachedConfig.settings || cachedConfig.device)) {
                 return null;
             }
 
@@ -481,9 +490,9 @@
                 ? parseInt(cachedConfig.device.id, 10)
                 : 0;
 
-            if (!credentialDeviceId || !configDeviceId || credentialDeviceId !== configDeviceId || cachedConfig.device.status !== 'active') {
-                clearCachedConfig();
-
+            // Do not use another known device's branding/config, but keep the
+            // cache intact and tolerate older credentials with no device id.
+            if (credentialDeviceId && configDeviceId && credentialDeviceId !== configDeviceId) {
                 return null;
             }
 
@@ -624,6 +633,7 @@
                 return { success: false, code: 'INVALID_RESPONSE', message: 'پاسخ سرور قابل خواندن نبود.' };
             }).then(function (payload) {
                 payload.__status = response.status;
+                if (response.status >= 400) payload.success = false;
 
                 return payload;
             });
@@ -1233,7 +1243,7 @@
         }
 
         if (el.clockWrap) {
-            el.clockWrap.classList.toggle('hide-clock', !settings.show_clock);
+            el.clockWrap.classList.toggle('hide-clock', settings.show_clock === false);
         }
 
         text(el.infoStatus, settings.show_clock === false ? 'ساعت مخفی' : '');
@@ -1253,70 +1263,51 @@
         text(el.infoFace, faceStatusLine());
     }
 
+    // Only an explicit authenticated response may revoke the saved token.
+    function isRevokedResponse(payload) {
+        return payload && payload.__status === 401 &&
+            (payload.code === 'DEVICE_UNAUTHORIZED' || payload.code === 'DEVICE_REVOKED' || payload.code === 'DEVICE_NOT_FOUND');
+    }
+
+    function revokeCredentials(code) {
+        stopHeartbeat();
+        credentials.clear();
+        wipeFaceData();
+        closeCamera();
+        showActivation('اعتبار این دستگاه باطل شده است. کد فعال‌سازی جدید را وارد کنید.', code);
+    }
+
     function loadConfig() {
+        var token = state.token;
         return api('/config', { method: 'GET' }).then(function (payload) {
-            if (payload.success) {
+            if (!token || state.token !== token) return false;
+            if (payload.success && payload.data && typeof payload.data === 'object') {
                 applyConfig(payload.data);
-                showHome();
-                startHeartbeat();
+                state.features.attendance = true;
+                setOnline(true);
+                if (root.getAttribute('data-state') === 'home') {
+                    setActionEnabled(true);
+                }
                 syncQueue('boot');
-
-                /* Warm the engine and pull the gallery in the background so the
-                   first employee to walk up does not wait for a 13 MB model. */
                 ensureEngine().then(function (report) {
-                    if (report.ok) {
-                        return syncFaceData(false);
-                    }
-
+                    if (report.ok) return syncFaceData(false);
                     return false;
                 });
-
                 return true;
             }
 
-            var code = payload.code || payload.__status;
-
-            if (code === 'DEVICE_REVOKED' || code === 'DEVICE_INACTIVE' || code === 'CUSTOMER_DISABLED' || code === 'DEVICE_UNAUTHORIZED') {
-                if (code === 'DEVICE_UNAUTHORIZED') {
-                    credentials.clear();
-                    wipeFaceData();
-                    showActivation('اعتبار این دستگاه باطل شده است. کد فعال‌سازی جدید را وارد کنید.', code);
-
-                    return false;
-                }
-
-                wipeFaceData();
-
-                showBlocked(code, payload.message);
-
+            if (isRevokedResponse(payload)) {
+                revokeCredentials(payload.code);
                 return false;
             }
 
-            if (code === 'NETWORK_ERROR') {
-                var cachedConfig = readCachedConfig();
-
-                if (cachedConfig) {
-                    applyConfig(cachedConfig);
-                    setOnline(false);
-
-                    /* An already activated kiosk keeps attendance available
-                       offline; queued punches are replayed by heartbeat and
-                       by the browser online event after reconnect. */
-                    state.features.attendance = true;
-                    showHome();
-                    setActionEnabled(true);
-                    startHeartbeat();
-
-                    loadCachedGallery();
-                    ensureEngine();
-
-                    return true;
-                }
-            }
-
-            showActivation(payload.message || 'ارتباط با سرور برقرار نشد.', code);
-
-            return false;
+            // Any transient failure leaves a previously registered kiosk active.
+            setOnline(false);
+            state.features.attendance = true;
+            if (root.getAttribute('data-state') === 'home') setActionEnabled(true);
+            loadCachedGallery();
+            ensureEngine();
+            return true;
         });
     }
 
@@ -1328,6 +1319,7 @@
             return;
         }
 
+        var token = state.token;
         api('/heartbeat', {
             body: {
                 /* the offset is measured from the previous answer, never invented:
@@ -1337,7 +1329,8 @@
                 app_version: SETUP.version
             }
         }).then(function (payload) {
-            if (payload.success) {
+            if (!token || state.token !== token) return;
+            if (payload.success && payload.data) {
                 setOnline(true);
 
                 if (payload.data && payload.data.server_time) {
@@ -1376,17 +1369,10 @@
                 return;
             }
 
-            setOnline(payload.code !== 'NETWORK_ERROR' ? true : false);
-
-            if (payload.code === 'DEVICE_REVOKED' || payload.code === 'DEVICE_INACTIVE' || payload.code === 'CUSTOMER_DISABLED') {
-                stopHeartbeat();
-                wipeFaceData();
-                showBlocked(payload.code, payload.message);
-            } else if (payload.code === 'DEVICE_UNAUTHORIZED') {
-                stopHeartbeat();
-                credentials.clear();
-                wipeFaceData();
-                showActivation('اعتبار این دستگاه باطل شده است. کد فعال‌سازی جدید را وارد کنید.', payload.code);
+            if (isRevokedResponse(payload)) {
+                revokeCredentials(payload.code);
+            } else {
+                setOnline(false);
             }
         });
     }
@@ -1896,12 +1882,14 @@
             ambiguous: ['ambiguous', 'شناسایی با اطمینان کافی انجام نشد', 'شناسایی چهره با اطمینان کافی انجام نشد. لطفاً دوباره تلاش کنید.']
         };
 
-        if (code === 'DEVICE_REVOKED' || code === 'DEVICE_INACTIVE' || code === 'CUSTOMER_DISABLED' || code === 'DEVICE_UNAUTHORIZED') {
-            stopHeartbeat();
-            wipeFaceData();
-            closeCamera();
-            showBlocked(code, response && response.message);
+        if (isRevokedResponse(response)) {
+            revokeCredentials(code);
+            return;
+        }
 
+        if (code === 'DEVICE_REVOKED' || code === 'DEVICE_INACTIVE' || code === 'CUSTOMER_DISABLED' || code === 'DEVICE_UNAUTHORIZED' || code === 'DEVICE_NOT_FOUND') {
+            closeCamera();
+            showError('device', 'ارتباط با سرور برقرار نشد', (response && response.message) || 'لطفاً دوباره تلاش کنید.', 6000);
             return;
         }
 
@@ -2320,7 +2308,11 @@
             return;
         }
 
-        navigator.serviceWorker.register(SETUP.base + SETUP.sw, { scope: SETUP.base }).catch(function () {
+        navigator.serviceWorker.register(SETUP.base + SETUP.sw, { scope: SETUP.base }).then(function () {
+            return navigator.serviceWorker.ready;
+        }).then(function (registration) {
+            if (registration.active) registration.active.postMessage('CACHE_MODELS');
+        }).catch(function () {
             /* offline shell simply stays unavailable */
         });
     }
@@ -2570,6 +2562,18 @@
         }
 
         state.token = stored.token;
+        state.status = 'active';
+        setOnline(false); // Until the server has actually answered.
+        var cachedConfig = readCachedConfig();
+        if (cachedConfig) {
+            applyConfig(cachedConfig);
+        }
+        state.features.attendance = true;
+        showHome();
+        setActionEnabled(true);
+        startHeartbeat();
+        loadCachedGallery();
+        ensureEngine();
         loadConfig();
     }
 

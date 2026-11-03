@@ -295,7 +295,7 @@ final class DeviceService
      * Same check as authenticateToken() but it also says WHY the token was
      * refused, so the API can answer with the documented device code:
      *
-     *   DEVICE_UNAUTHORIZED  - absent / malformed / unknown / expired token
+     *   DEVICE_UNAUTHORIZED  - absent / malformed / unknown token
      *   DEVICE_INACTIVE      - registered but never activated, or suspended
      *   DEVICE_REVOKED       - the owner revoked this device
      *   CUSTOMER_DISABLED    - the customer account is not active
@@ -343,9 +343,8 @@ final class DeviceService
             return $refuse('DEVICE_INACTIVE', 'inactive_device', $device);
         }
 
-        if (Device::tokenExpired($device)) {
-            return $refuse('DEVICE_UNAUTHORIZED', 'expired_token', $device);
-        }
+        // Kiosk credentials persist until revoked or rotated. Legacy expiry
+        // timestamps must not silently unpair an otherwise active device.
 
         // The device's customer must still be active.
         if (!Customer::isActive((int) $device['customer_id'])) {
@@ -600,7 +599,7 @@ final class DeviceService
      * burns the value atomically, so its surface decays to zero.
      *
      * @param array<string,mixed> $context
-     * @return array{ok:bool, code:string, message:string, token?:string, expires_at?:string, device?:array<string,mixed>, http?:int}
+     * @return array{ok:bool, code:string, message:string, token?:string, expires_at?:?string, device?:array<string,mixed>, http?:int}
      */
     public function activateWithCode(string $plainCode, array $context = []): array
     {
@@ -714,7 +713,7 @@ final class DeviceService
      * definitive answer (success, expired, or suspended customer).
      *
      * @param array<string,mixed> $context
-     * @return array{ok:bool, code:string, message:string, token?:string, expires_at?:string, device?:array<string,mixed>, http?:int}|null
+     * @return array{ok:bool, code:string, message:string, token?:string, expires_at?:?string, device?:array<string,mixed>, http?:int}|null
      */
     private function activateWithPairingCode(string $plainCode, array $context): ?array
     {
@@ -809,7 +808,7 @@ final class DeviceService
      * the answer the kiosk receives.
      *
      * @param array<string,mixed> $context
-     * @return array{ok:bool, code:string, message:string, token:string, expires_at:string, device:array<string,mixed>|null}
+     * @return array{ok:bool, code:string, message:string, token:string, expires_at:?string, device:array<string,mixed>|null}
      */
     private function completeActivation(int $deviceId, int $customerId, array $context, string $via): array
     {

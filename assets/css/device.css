@@ -60,6 +60,7 @@ body.kiosk {
     user-select: none;
     -webkit-user-select: none;
     overflow: hidden;
+    height: 100dvh;
     min-height: 100dvh;
 }
 
@@ -96,7 +97,11 @@ body.kiosk {
 .k-shell {
     display: flex;
     flex-direction: column;
+    height: 100dvh;
     min-height: 100dvh;
+    max-height: 100dvh;
+    box-sizing: border-box;
+    overflow: hidden;
     padding: 20px clamp(16px, 3vw, 44px) 18px;
     gap: 16px;
 }
@@ -1169,47 +1174,44 @@ body.kiosk {
    Small screens (phone sized kiosk)
    ------------------------------------------------------------------- */
 @media (max-width: 760px) {
-    /* Entry/exit side by side: stacked full-width buttons pushed the exit
-       button below the phone viewport (body overflow is hidden). */
-    .k-actions {
-        grid-template-columns: 1fr 1fr !important;
-        gap: 12px;
-    }
-
-    .k-action {
-        min-height: clamp(85px, 14vh, 120px) !important;
-        padding: 12px !important;
-        border-radius: 18px !important;
-    }
-
-    .k-action .k-action-icon {
-        width: 38px !important;
-        height: 38px !important;
-    }
-
-    .k-action .k-action-label {
-        font-size: clamp(20px, 3vh, 26px) !important;
-    }
-
-    /* The hint line under each label only eats scarce phone height. */
-    .k-action .k-action-hint {
-        display: none;
-    }
-
-    .k-clock-time {
-        font-size: clamp(48px, 11vh, 84px) !important;
+    .k-shell {
+        padding: max(8px, env(safe-area-inset-top)) clamp(10px, 3vw, 18px) max(8px, env(safe-area-inset-bottom));
+        gap: clamp(6px, 1.2dvh, 12px);
     }
 
     .k-top {
-        flex-direction: column;
-        align-items: flex-start;
-        padding: 10px 14px !important;
+        flex: 0 0 auto;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 10px;
+        gap: 8px;
     }
+    .k-brand { gap: 8px; flex: 1 1 auto; }
+    .k-logo { width: 40px; height: 40px; border-radius: 12px; font-size: 17px; }
+    .k-business { font-size: clamp(14px, 2.2dvh, 18px); }
+    .k-branch, .k-pill#k-device-pill { display: none; }
+    .k-top-meta { flex: 0 0 auto; margin-inline-start: auto; gap: 6px; flex-wrap: nowrap; }
+    .k-pill { padding: 4px 8px; font-size: 11px; gap: 5px; }
+    .k-top-meta .k-btn { padding: 6px 8px; font-size: 11px; }
+    .k-clock { flex: 1 1 auto; min-height: 0; justify-content: center; padding: 4px 0; gap: 4px; }
+    .k-clock-time { font-size: clamp(38px, 8.5dvh, 60px); }
+    .k-clock-date { font-size: clamp(12px, 1.8dvh, 16px); gap: 8px; }
+    .k-actions { flex: 0 0 auto; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-bottom: 0; }
+    .k-action { min-height: clamp(80px, 14dvh, 110px); padding: 8px 10px; border-radius: 16px; gap: 6px; }
+    .k-action .k-action-icon { width: clamp(28px, 4.5dvh, 36px); height: clamp(28px, 4.5dvh, 36px); }
+    .k-action .k-action-label { font-size: clamp(20px, 3dvh, 26px); }
+    .k-action .k-action-hint { display: none; }
+    .k-banner { flex: 0 0 auto; padding: 6px 8px; font-size: 11px; gap: 6px; }
+    .k-footer { flex: 0 0 auto; font-size: 10px; gap: 4px; }
+}
 
-    .k-top-meta {
-        margin-inline-start: 0;
-        justify-content: flex-start;
-    }
+/* Small landscape viewports must remain usable rather than clipping buttons. */
+@media (max-height: 600px) {
+    .k-shell { overflow-y: auto; overscroll-behavior: contain; }
+}
+@media (max-height: 580px) {
+    .k-clock { display: none; }
 }
 
 /*
