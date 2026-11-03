@@ -1513,14 +1513,34 @@
         state.action = action;
         setCameraState('recognizing', HINTS.recognizing);
 
-        var requestId = requestId();
-        state.lastRequestId = requestId;
+        var reqId = requestId();
+        state.lastRequestId = reqId;
+
+        var recognitionTimedOut = false;
+        var recognitionTimer = window.setTimeout(function () {
+            if (state.lastRequestId !== reqId) {
+                return;
+            }
+
+            if (state.faceBusy && root.getAttribute('data-camera-state') === 'recognizing') {
+                recognitionTimedOut = true;
+                state.faceBusy = false;
+                state.faceStable = 0;
+                setCameraState('guidance', 'شناسایی زمان‌بر شد؛ لطفاً چهره را دوباره تنظیم کنید.');
+            }
+        }, 8000);
 
         engine.recognize(el.cameraVideo).then(function (capture) {
+            window.clearTimeout(recognitionTimer);
+
+            if (recognitionTimedOut || state.lastRequestId !== reqId) {
+                return;
+            }
+
             if (!capture.ok) {
                 state.faceBusy = false;
                 state.faceStable = 0;
-                reportOutcome(action, requestId, capture.code, null, capture.message);
+                reportOutcome(action, reqId, capture.code, null, capture.message);
 
                 return;
             }
@@ -1528,7 +1548,7 @@
             var match = engine.match(capture.embedding, gallery.employees);
 
             if (match.decision === 'matched') {
-                reportOutcome(action, requestId, 'FACE_MATCHED', {
+                reportOutcome(action, reqId, 'FACE_MATCHED', {
                     employee_id: match.best.employee_id,
                     sample_index: match.best.sample_index,
                     distance: match.best.distance,
@@ -1542,7 +1562,7 @@
             state.faceStable = 0;
 
             if (match.decision === 'ambiguous') {
-                reportOutcome(action, requestId, 'FACE_MATCH_AMBIGUOUS', {
+                reportOutcome(action, reqId, 'FACE_MATCH_AMBIGUOUS', {
                     distance: match.best ? match.best.distance : null,
                     confidence: match.best ? match.best.similarity : null
                 }, '');
@@ -1550,11 +1570,17 @@
                 return;
             }
 
-            reportOutcome(action, requestId, 'UNKNOWN_FACE', {
+            reportOutcome(action, reqId, 'UNKNOWN_FACE', {
                 distance: match.best ? match.best.distance : null,
                 confidence: match.best ? match.best.similarity : null
             }, '');
         })['catch'](function (error) {
+            window.clearTimeout(recognitionTimer);
+
+            if (recognitionTimedOut || state.lastRequestId !== reqId) {
+                return;
+            }
+
             state.faceBusy = false;
             reportCameraError('RECOGNITION_FAILED', String(error && error.message ? error.message : error));
             showError('engine', 'خطا در تشخیص چهره', 'پردازش تصویر روی این دستگاه انجام نشد. لطفاً دوباره تلاش کنید.', 6000);
