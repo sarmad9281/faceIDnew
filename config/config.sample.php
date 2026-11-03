@@ -41,17 +41,22 @@ return [
     /* -----------------------------------------------------------------
      * Public landing page contact channels (shown on GET /)
      *
-     * Leave empty to keep the landing fully self-contained: the contact
-     * cards then lead to the on-page consultation form. Fill any channel
-     * to make its card (and the form's send button) point straight at it.
+     * Preferred source: /owner/settings in the owner panel
+     * (`platform.support_phone`, `platform.instagram`,
+     * `platform.whatsapp`, `platform.telegram`). The values below are
+     * only a backwards-compatible fallback for installations that already
+     * configured the landing page here. Empty/invalid channels are not
+     * rendered; the landing page has no on-site message form.
      *   phone         : dialable number, e.g. +98... (used for tel: links)
      *   phone_display : optional prettier label for the number
+     *   instagram     : handle or full https://www.instagram.com/... link
      *   whatsapp      : number or full https://wa.me/... link
      *   telegram      : username (with or without @) or full https://t.me/...
      * ----------------------------------------------------------------*/
     'landing' => [
         'phone'         => '',
         'phone_display' => '',
+        'instagram'     => '',
         'whatsapp'      => '',
         'telegram'      => '',
     ],
