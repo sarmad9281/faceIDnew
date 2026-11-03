@@ -28,6 +28,10 @@ $settings = $engine['settings'];
         </p>
     </div>
     <div class="row-actions">
+        <?php if (!empty($sharedGatewayConfigured)): ?>
+            <span class="badge">درگاه ارتباطی تلگرام: فعال (سرور خارجی / بدون فیلتر)</span>
+            <small class="muted">درگاه تنظیم شده است؛ اتصال را با پیام آزمایشی بررسی کنید.</small>
+        <?php endif; ?>
         <span class="badge <?= $engine['usable'] ? '' : 'badge-muted' ?>">
             <?= $engine['usable'] ? 'آماده ارسال' : 'غیرفعال / تنظیم‌نشده' ?>
         </span>
@@ -72,16 +76,6 @@ $settings = $engine['settings'];
                 <label class="field">
                     <span>Chat ID</span>
                     <input type="text" name="telegram_chat_id" class="ltr" value="<?= $e($chatId) ?>" placeholder="-1001234567890">
-                </label>
-                <label class="field">
-                    <span>آدرس درگاه اختصاصی / پروکسی معکوس (اختیاری - برای سرورهای ایران)</span>
-                    <input type="url" name="api_base_url" class="ltr" maxlength="255" value="<?= $e($engine['settings']['api_base_url'] ?? '') ?>" placeholder="https://telegram-gateway.example.com">
-                    <span class="field-hint">درگاه باید مورد اعتماد باشد؛ توکن ربات و متن پیام را دریافت می‌کند. خالی یعنی تنظیم پیش‌فرض سرور.</span>
-                </label>
-                <label class="field">
-                    <span>آدرس پروکسی HTTP/SOCKS5 (اختیاری)</span>
-                    <input type="text" name="proxy_url" class="ltr" maxlength="255" value="<?= $e($engine['settings']['proxy_url'] ?? '') ?>" placeholder="socks5://proxy.example.com:1080">
-                    <span class="field-hint">فقط آدرس عمومی بدون نام کاربری و رمز عبور. خالی یعنی تنظیم پیش‌فرض سرور.</span>
                 </label>
                 <label class="field">
                     <span>ساعت گزارش روزانه</span>

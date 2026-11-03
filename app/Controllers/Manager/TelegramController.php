@@ -66,6 +66,7 @@ final class TelegramController
             'chatId'        => $settings['telegram_chat_id'] ?? '',
             'notifications' => $notifications,
             'configured'    => ($settings['telegram_chat_id'] ?? '') !== '',
+            'sharedGatewayConfigured' => $service->hasSharedGateway(),
             'lastSaved'     => $settings['telegram_updated_at'] ?? null,
             'customer'      => Customer::find($customerId),
             'engine'        => [
@@ -131,11 +132,6 @@ final class TelegramController
             'daily_report_time' => $request->input('daily_report_time', '23:55'),
             'is_active'         => $request->input('is_active', $request->input('telegram_is_active', '0')),
         ];
-
-        foreach (['api_base_url', 'proxy_url'] as $field) {
-            $value = $request->input($field, null);
-            if ($value !== null) $engineInput[$field] = trim((string) $value);
-        }
 
         $token = trim((string) $request->input('bot_token', ''));
 
