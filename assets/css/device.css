@@ -1062,6 +1062,30 @@ body.kiosk {
     -webkit-overflow-scrolling: touch;
 }
 
+/*
+ * On the kiosk page the activation screen is an OVERLAY
+ * (<section class="k-overlay k-activate" id="kiosk-activation">) and the
+ * shell JS shows/hides it purely by toggling .is-open. The bare
+ * .k-activate rule above has the SAME specificity as .k-overlay but
+ * comes LATER in this file, so its display:grid beat the overlay's
+ * display:none: after a successful activation, only(null)/showHome()
+ * removed .is-open yet the activation card stayed on screen forever,
+ * covering the home screen (clock + punch buttons) while the server
+ * already showed the device activated and online.
+ *
+ * These two higher-specificity rules restore the show/hide contract for
+ * the OVERLAY use only: hidden by default, grid when open. The
+ * standalone offline shell (.k-activate without .k-overlay, cached by
+ * sw.js) is deliberately NOT matched - it must always render.
+ */
+.k-overlay.k-activate {
+    display: none;
+}
+
+.k-overlay.k-activate.is-open {
+    display: grid;
+}
+
 .k-activate-card {
     /* auto margins centre the card when it fits and collapse to 0 when
        it does not, so an overflowing activation card always scrolls from
@@ -1170,6 +1194,13 @@ body.kiosk {
 
     .k-activate {
         padding: 14px 10px;
+    }
+
+    /* Phone width: the open activation overlay lays out as flex
+       (column, from .k-overlay). The card's margin:auto still centres
+       it when it fits and collapses to 0 when it must scroll. */
+    .k-overlay.k-activate.is-open {
+        display: flex;
     }
 
     .k-activate-card {
