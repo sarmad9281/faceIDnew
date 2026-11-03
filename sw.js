@@ -21,7 +21,7 @@
    lives in localStorage and is only attached to requests by the page itself.
    ===================================================================== */
 
-const CACHE = 'sarmad-kiosk-v3';
+const CACHE = 'sarmad-kiosk-v4';
 
 const SHELL = [
     './device/offline',

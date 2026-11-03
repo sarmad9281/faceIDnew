@@ -44,9 +44,9 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$WITH_CONFIG" -eq 1 ]; then
-    NAME="sarmad-attendance-v1.0.0-directadmin-private.zip"
+    NAME="sarmad-attendance-v1.0.1-directadmin-private.zip"
 else
-    NAME="sarmad-attendance-v1.0.0.zip"
+    NAME="sarmad-attendance-v1.0.1.zip"
 fi
 [ -n "$OUT" ] || OUT="$ROOT/release/$NAME"
 mkdir -p "$(dirname "$OUT")"
