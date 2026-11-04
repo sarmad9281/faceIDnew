@@ -17,7 +17,7 @@ $title = $title ?? 'SARMAD Attendance';
     <meta name="robots" content="noindex, nofollow">
     <?= $csrfMeta() ?>
     <title><?= $e($title) ?> | SARMAD Attendance</title>
-    <link rel="stylesheet" href="<?= $e($asset('css/app.css')) ?>">
+    <link rel="stylesheet" href="<?= $e($css('css/app.css')) ?>">
 </head>
 <body class="body-blank">
     <main class="blank-wrap">

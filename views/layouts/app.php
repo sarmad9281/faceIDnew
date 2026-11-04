@@ -136,10 +136,10 @@ $icon = static function (string $key) use ($icons): string {
     <meta name="robots" content="noindex, nofollow">
     <?= $csrfMeta() ?>
     <title><?= $e($title ?? 'داشبورد') ?> | SARMAD Attendance</title>
-    <link rel="stylesheet" href="<?= $e($asset('css/app.css')) ?>">
-    <link rel="stylesheet" href="<?= $e($asset('css/manager.css')) ?>">
+    <link rel="stylesheet" href="<?= $e($css('css/app.css')) ?>">
+    <link rel="stylesheet" href="<?= $e($css('css/manager.css')) ?>">
     <?php if ($ownerMode || $impersonation !== null): ?>
-        <link rel="stylesheet" href="<?= $e($asset('css/owner.css')) ?>">
+        <link rel="stylesheet" href="<?= $e($css('css/owner.css')) ?>">
     <?php endif; ?>
 </head>
 <body class="mng">
@@ -148,8 +148,13 @@ $icon = static function (string $key) use ($icons): string {
         <div class="m-brand">
             <span class="m-brand-mark">
                 <?php if ($logoUrl !== ''): ?>
-                    <?php /* the ONLY logo rule that matters: contained, never cropped */ ?>
-                    <img class="brand-logo m-brand-logo" src="<?= $e($logoUrl) ?>" alt="لوگوی <?= $e($brandName) ?>">
+                    <?php /* STAGE 21 - hard, inline box: the size is enforced on
+                             the tag itself, so even before/without the stylesheet a
+                             huge upload can never push the sidebar menu or the
+                             dashboard buttons aside. */ ?>
+                    <img class="brand-logo m-brand-logo" src="<?= $e($logoUrl) ?>"
+                         alt="لوگوی <?= $e($brandName) ?>"
+                         style="max-height: 42px; max-width: 130px; width: auto; height: auto; object-fit: contain; display: block;">
                 <?php else: ?>SA<?php endif; ?>
             </span>
             <span class="m-brand-text">
@@ -221,7 +226,8 @@ $icon = static function (string $key) use ($icons): string {
                      ------------------------------------------------------------ */ ?>
             <div class="m-print-brand">
                 <?php if ($logoUrl !== ''): ?>
-                    <img class="brand-logo" src="<?= $e($logoUrl) ?>" alt="لوگوی <?= $e($brandName) ?>">
+                    <img class="brand-logo" src="<?= $e($logoUrl) ?>" alt="لوگوی <?= $e($brandName) ?>"
+                         style="max-height: 42px; max-width: 130px; width: auto; height: auto; object-fit: contain; display: block;">
                 <?php endif; ?>
                 <div class="m-print-brand-text">
                     <strong><?= $e($brandName) ?></strong>

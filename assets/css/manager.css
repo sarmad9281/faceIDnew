@@ -87,10 +87,13 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 
 .m-brand-mark {
-    /* STAGE 20 - the tile GROWS with a wide logo instead of clipping it:
-       min 44x44 for the "SA" fallback, up to 132px wide for a wordmark. */
+    /* STAGE 21 - a HARD box. The logo window can never grow: it is 132x44
+       (the inline cap on the <img> is 130x42, plus the 1px border) and
+       `overflow: hidden` guarantees that nothing can spill onto the menu or
+       the dashboard buttons, whatever the uploaded image measures. */
+    width: 44px; height: 44px;
     min-width: 44px; min-height: 44px;
-    width: auto; height: 44px;
+    max-width: 132px; max-height: 44px;
     flex: 0 0 auto;
     padding: 4px 6px;
     border-radius: 14px;
@@ -98,23 +101,30 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
     background: linear-gradient(135deg, var(--m-primary), var(--m-primary-2));
     color: #fff; font-weight: 800; letter-spacing: .5px;
     box-shadow: 0 10px 24px rgba(79, 125, 255, .35);
-    overflow: visible;
-    max-width: 132px;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 /* A real logo brings its own background - no purple tile behind it. */
 .m-brand-mark:has(img) {
+    width: 132px; height: 44px;
+    min-width: 132px; min-height: 44px;
+    max-width: 132px; max-height: 44px;
+    padding: 0;                       /* 130x42 of usable area, nothing clipped */
     background: rgba(255, 255, 255, .06);
     box-shadow: none;
     border: 1px solid var(--m-line);
+    box-sizing: border-box;
 }
-/* STAGE 20 - the tenant logo inside the sidebar tile: contained, never
-   cropped (a wide wordmark used to be cut on both sides by `cover`). */
+/* STAGE 20/21 - the tenant logo inside the sidebar tile: contained, never
+   cropped, never larger than the box (belt and braces next to the inline
+   style that ships with the tag itself). */
 .m-brand-mark img {
+    display: block;
     width: auto;
     height: auto;
-    max-width: 100%;
-    max-height: 100%;
+    max-width: 130px;
+    max-height: 42px;
     object-fit: contain;
     object-position: center;
     background: transparent;
@@ -827,10 +837,12 @@ body.body-blank { background: radial-gradient(900px 600px at 50% -10%, rgba(79, 
    reduce the page to exactly this card.
    ===================================================================== */
 .qr-badge-card {
+    /* STAGE 21 - a real badge, not a page-wide banner: 320px on screen. */
     width: 100%;
-    max-width: 420px;
-    margin: 14px 0;
-    padding: 18px;
+    max-width: 320px;
+    margin: 14px auto;
+    padding: 16px;
+    box-sizing: border-box;
     border-radius: 18px;
     border: 1px solid var(--m-line);
     background: linear-gradient(160deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .015));
@@ -866,14 +878,16 @@ body.body-blank { background: radial-gradient(900px 600px at 50% -10%, rgba(79, 
 .qr-card-middle {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     flex-wrap: wrap;
     justify-content: center;
 }
 
 .qr-code {
-    width: 168px;
-    height: 168px;
+    /* STAGE 21 - 148px keeps the symbol and the person on ONE row inside the
+       320px card (148 + 12 gap + 106 name + 2*16 padding = 298px). */
+    width: 148px;
+    height: 148px;
     padding: 10px;
     border-radius: 14px;
     background: #fff;
@@ -892,7 +906,8 @@ body.body-blank { background: radial-gradient(900px 600px at 50% -10%, rgba(79, 
     display: flex;
     flex-direction: column;
     gap: 4px;
-    min-width: 130px;
+    min-width: 106px;
+    max-width: 100%;
     text-align: start;
 }
 
@@ -931,13 +946,71 @@ body.body-blank { background: radial-gradient(900px 600px at 50% -10%, rgba(79, 
 
     .qr-card .card-head h2 { color: #111; }
 
+    /* STAGE 21 - locked to a standard staff card: 80mm wide (a real card is
+       ~85.6x54mm, so 80mm keeps a safe printer margin), centred on the white
+       sheet, a small logo on top and the badge proportional in the middle. */
     .qr-badge-card {
+        width: 80mm;
+        max-width: 80mm;
+        min-height: 54mm;
+        margin: 0 auto 6mm;
+        padding: 4mm 5mm;
+        box-sizing: border-box;
+        border: 0.4mm solid #111;
+        border-radius: 3mm;
         background: #fff;
-        border: 1.2pt solid #111;
         color: #111;
+        gap: 2mm;
+        box-shadow: none;
         page-break-inside: avoid;
-        max-width: 100%;
+        break-inside: avoid;
     }
+
+    /* The inline hard cap on the <img> is 42x130; the printed card needs a
+       smaller lockup, so print wins with !important - aspect ratio is kept. */
+    .qr-badge-card img,
+    .qr-badge-card .brand-logo {
+        max-height: 28px !important;
+        max-width: 90px !important;
+        width: auto !important;
+        height: auto !important;
+        object-fit: contain !important;
+        display: block;
+        margin: 0 auto 2mm;
+    }
+
+    /* A card is 80mm wide; stacking logo / symbol / person guarantees that a
+       long name can never push the symbol out of the printed frame. */
+    .qr-badge-card .qr-card-middle {
+        flex-direction: column;
+        gap: 2mm;
+        flex-wrap: nowrap;
+    }
+
+    .qr-badge-card .qr-card-person {
+        min-width: 0;
+        max-width: 66mm;
+        align-items: center;
+        text-align: center;
+    }
+
+    .qr-badge-card .qr-code {
+        width: 34mm;
+        height: 34mm;
+        padding: 1.5mm;
+        margin: 0 auto;
+        border: 0.2mm solid #ddd;
+        border-radius: 2mm;
+        box-shadow: none;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    .qr-badge-card .qr-card-brand strong { font-size: 10.5pt; }
+    .qr-badge-card .qr-card-person strong { font-size: 10.5pt; }
+    .qr-badge-card .qr-card-person span { font-size: 8pt; }
+    .qr-badge-card .qr-card-foot { font-size: 7pt; }
+    .qr-badge-card .qr-card-value { font-size: 6.5pt; }
 
     .qr-card-brand small,
     .qr-card-foot,
@@ -945,4 +1018,8 @@ body.body-blank { background: radial-gradient(900px 600px at 50% -10%, rgba(79, 
     .qr-card-person span { color: #333; }
 
     .qr-code { box-shadow: none; border: 1px solid #ddd; }
+
+    /* The printed card is the only thing on the sheet: no panel chrome, no
+       page title, nothing that could push the card off the paper. */
+    .qr-card .card-head { display: none !important; }
 }

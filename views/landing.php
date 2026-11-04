@@ -55,7 +55,7 @@ $telegramLabel = (string) $contact['telegramLabel'];
     <meta property="og:image" content="<?= $e($asset('/icons/icon-512.png')) ?>">
     <link rel="icon" type="image/png" sizes="192x192" href="<?= $e($asset('/icons/icon-192.png')) ?>">
     <link rel="apple-touch-icon" href="<?= $e($asset('/icons/apple-touch-icon.png')) ?>">
-    <link rel="stylesheet" href="<?= $e($asset('/css/landing.css')) ?>">
+    <link rel="stylesheet" href="<?= $e($css('/css/landing.css')) ?>">
 </head>
 <body class="landing-body">
 <a class="skip-link" href="#main">پرش به محتوای اصلی</a>

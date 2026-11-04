@@ -52,7 +52,10 @@ final class View
 
         $__variables = array_merge(self::$shared, $__data, [
             'e'         => static fn ($value): string => self::e($value),
-            'asset'     => static fn (string $path): string => \App\Support\Url::asset($path),
+            'asset'     => static fn (string $path, ?string $version = null): string => \App\Support\Url::asset($path, $version),
+            // STAGE 21 - every stylesheet goes through this helper, so all CSS
+            // links carry the same single ?v=1.2.1 cache-busting parameter.
+            'css'       => static fn (string $path): string => \App\Support\Url::css($path),
             'url'       => static fn (string $path): string => \App\Support\Url::to($path),
             'csrf'      => static fn (): string => Csrf::field(),
             'csrfMeta'  => static fn (): string => Csrf::meta(),

@@ -200,10 +200,15 @@ $error = static function (string $key) use ($errors): string {
                          letterhead. Transparent PNG/WebP keeps its
                          transparency (no tile behind it). */ ?>
                 <?php if ($logoUrl !== null): ?>
-                    <div class="brand-preview o-logo-preview">
-                        <img class="brand-logo" src="<?= $e($logoUrl) ?>" alt="لوگوی برند">
-                        <span class="o-small o-muted ltr"><?= $e((string) $customer['logo_path']) ?></span>
+                    <?php /* STAGE 21 - a hard, fixed preview frame. A 4000px photo
+                             is contained inside 160x60, so the branding card keeps
+                             its shape and the page never scrolls sideways. */ ?>
+                    <div class="o-logo-frame"
+                         style="display: inline-flex; align-items: center; justify-content: center; height: 60px; max-height: 60px; max-width: 160px; overflow: hidden; padding: 4px; border: 1px dashed var(--o-line); border-radius: 12px; background: rgba(255, 255, 255, .02);">
+                        <img class="brand-logo" src="<?= $e($logoUrl) ?>" alt="لوگوی برند"
+                             style="max-height: 60px; max-width: 160px; width: auto; height: auto; object-fit: contain; display: block;">
                     </div>
+                    <span class="o-small o-muted ltr" style="display: block; margin-top: 6px;"><?= $e((string) $customer['logo_path']) ?></span>
 
                     <form method="post" action="<?= $e($url('/owner/customers/' . $customer['uuid'] . '/logo/delete')) ?>"
                           data-confirm="لوگوی این مشتری حذف شود؟">

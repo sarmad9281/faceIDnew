@@ -164,15 +164,47 @@ final class Url
         return self::basePath() . ($path === '/' ? '' : rtrim($path, '/')) ?: '/';
     }
 
-    public static function asset(string $path): string
-    {
-        $version = (string) Config::get('app.version', '1.0.9');
+    /**
+     * STAGE 21 - one version for every stylesheet.
+     *
+     * The cache-busting parameter of all CSS is decided HERE and nowhere else:
+     * layouts call Url::css(), so a new rule can never be shadowed by a
+     * browser holding the old file. Bump this constant and every panel
+     * (manager, owner, kiosk) asks for the fresh file on its next load.
+     */
+    public const CSS_VERSION = '1.2.1';
 
-        if (in_array($version, ['1.0.0', '1.0.1', '1.0.2', '1.0.3', '1.0.4', '1.0.5', '1.0.6', '1.0.7', '1.0.8'], true)) {
-            $version = '1.0.9';
+    /**
+     * Asset URL with a version query.
+     *
+     * The query is built exactly once - `?v=1.2.1` - so a caller can never
+     * produce the historical `?v=1.0.9&v=1.1.0` double parameter, which made
+     * browsers (and PHP) keep reading the FIRST, stale value.
+     */
+    public static function asset(string $path, ?string $version = null): string
+    {
+        if ($version === null || $version === '') {
+            $version = (string) Config::get('app.version', '1.0.9');
+
+            if (in_array($version, ['1.0.0', '1.0.1', '1.0.2', '1.0.3', '1.0.4', '1.0.5', '1.0.6', '1.0.7', '1.0.8'], true)) {
+                $version = '1.0.9';
+            }
         }
 
-        return self::to('/assets/' . ltrim($path, '/')) . '?v=' . rawurlencode($version);
+        $path = '/' . ltrim($path, '/');
+
+        // Drop any query/hash the caller might have pasted in, then add ours.
+        $path = (string) (preg_split('/[?#]/', $path)[0] ?? $path);
+
+        return self::to('/assets' . $path) . '?v=' . rawurlencode($version);
+    }
+
+    /**
+     * Stylesheet URL - always pinned to Url::CSS_VERSION.
+     */
+    public static function css(string $path): string
+    {
+        return self::asset($path, self::CSS_VERSION);
     }
 
     public static function full(string $path = ''): string

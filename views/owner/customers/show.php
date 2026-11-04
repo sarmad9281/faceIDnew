@@ -26,7 +26,8 @@ $enabledFeatures = array_values(array_filter($features, static fn (array $f): bo
     <div style="display:flex;align-items:center;gap:14px">
         <?php if ($logoUrl !== null): ?>
             <?php /* never cropped: the logo keeps its natural aspect ratio */ ?>
-            <img class="brand-logo" src="<?= $e($logoUrl) ?>" alt="لوگو" style="max-height:56px;max-width:160px">
+            <img class="brand-logo" src="<?= $e($logoUrl) ?>" alt="لوگو"
+                 style="max-height: 42px; max-width: 130px; width: auto; height: auto; object-fit: contain; display: block;">
         <?php else: ?>
             <span class="o-brand-mark" style="width:56px;height:56px;border-radius:16px"><?= $e(mb_substr((string) $customer['name'], 0, 2, 'UTF-8')) ?></span>
         <?php endif; ?>
