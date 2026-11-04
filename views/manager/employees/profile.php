@@ -93,7 +93,8 @@ $employment = [
         <div class="qr-badge-card">
             <div class="qr-card-brand">
                 <?php if (!empty($brandLogoUrl)): ?>
-                    <img class="brand-logo" src="<?= $e($brandLogoUrl) ?>" alt="لوگوی <?= $e($brandName) ?>">
+                    <img class="brand-logo" src="<?= $e($brandLogoUrl) ?>" alt="لوگوی <?= $e($brandName) ?>"
+                         style="max-height: 42px; max-width: 130px; width: auto; height: auto; object-fit: contain; display: block;">
                 <?php endif; ?>
                 <strong><?= $e($brandName !== '' ? $brandName : 'SARMAD Attendance') ?></strong>
                 <small>کارت تردد پرسنلی</small>
@@ -120,7 +121,7 @@ $employment = [
         </p>
 
         <script src="<?= $e($asset('/vendor/qrcode.min.js')) ?>"></script>
-        <script src="<?= $e($asset('/js/qr-badge.js')) ?>&v=1.2.0"></script>
+        <script src="<?= $e($asset('/js/qr-badge.js', '1.2.0')) ?>"></script>
     <?php endif; ?>
 </section>
 

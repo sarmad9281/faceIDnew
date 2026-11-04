@@ -146,18 +146,21 @@ body.kiosk {
    The square tile above is only the "SA" fallback. A customer logo keeps
    its own aspect ratio and its own background:
 
-       object-fit: contain; width: auto; max-height: 88px;
+       object-fit: contain; width: auto; max-height: 42px;
 
    so a wide wordmark, a square icon and a tall emblem are all shown
    completely - never cropped, never stretched - and a transparent
    PNG/WebP stays transparent (no gradient behind it). */
 img.k-logo {
+    /* STAGE 21 - hard box, same numbers as the inline style on the <img>
+       itself (42x130): the top bar can never be stretched by a big upload,
+       and the logo keeps its own aspect ratio (contain, never cropped). */
     width: auto;
     height: auto;
     min-width: 0;
     min-height: 0;
-    max-width: clamp(120px, 26vw, 320px);
-    max-height: 88px;
+    max-width: 130px;
+    max-height: 42px;
     padding: 0;
     border: 0;
     border-radius: 0;

@@ -89,7 +89,8 @@ $brandName = \App\Models\Customer::brandName(is_array($customer) ? $customer : [
             </div>
             <div class="brand-preview">
                 <?php if ($logo !== ''): ?>
-                    <img class="brand-logo" src="<?= $e(Url::upload($logo)) ?>" alt="لوگوی <?= $e($brandName) ?>">
+                    <img class="brand-logo" src="<?= $e(Url::upload($logo)) ?>" alt="لوگوی <?= $e($brandName) ?>"
+                         style="max-height: 42px; max-width: 130px; width: auto; height: auto; object-fit: contain; display: block;">
                 <?php else: ?>
                     <span class="brand-logo is-empty">بدون لوگو</span>
                 <?php endif; ?>

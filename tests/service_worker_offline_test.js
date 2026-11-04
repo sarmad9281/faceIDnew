@@ -6,26 +6,38 @@ const path = require("node:path");
 const vm = require("node:vm");
 const source = fs.readFileSync(path.join(__dirname, "..", "sw.js"), "utf8");
 const layout = fs.readFileSync(path.join(__dirname, "..", "views/layouts/device.php"), "utf8");
-// Stage 20 bumped the kiosk entry points to 1.2.0 (QR badge reader); every
-// other shell asset keeps 1.1.0. The version query is what makes a service
-// worker installation fetch the NEW file instead of its cached copy.
+// Stage 21 pins every stylesheet to Url::CSS_VERSION (1.2.1, link built by the
+// `$css()` helper) and the kiosk scripts to their own explicit versions. The
+// version query is what makes a service worker installation (and a browser)
+// fetch the NEW file instead of its cached copy - and it must appear exactly
+// once, never as the historical `?v=1.0.9&v=1.1.0` double parameter.
+const urlSource = fs.readFileSync(path.join(__dirname, '..', 'app/Support/Url.php'), 'utf8');
+const viewSource = fs.readFileSync(path.join(__dirname, '..', 'app/Core/View.php'), 'utf8');
+
+assert(
+  /public\s+const\s+CSS_VERSION\s*=\s*'1\.2\.1'/.test(urlSource),
+  'Url::CSS_VERSION must be 1.2.1',
+);
+assert(viewSource.includes("'css'") && viewSource.includes('Url::css'), 'views get the css() helper');
+
 const EXPECTED_ASSET_VERSIONS = {
-  '/css/device.css': '1.1.0',
   '/js/device.js': '1.2.0',
   '/js/device-queue.js': '1.1.0',
   '/js/device-qr.js': '1.2.0',
   '/js/face/face-engine.js': '1.1.0',
   '/js/face/face-store.js': '1.1.0',
-  '/vendor/jsQR.min.js': '',
 };
 for (const [asset, version] of Object.entries(EXPECTED_ASSET_VERSIONS)) {
-  const line = layout.split('\n').find(line => line.includes("$asset('" + asset + "')"));
+  const line = layout.split('\n').find(line => line.includes("$asset('" + asset + "'"));
   assert(line, asset + ' must be loaded by the device layout');
-  if (version !== '') {
-    assert(line.includes('&v=' + version), asset + ' must use version ' + version);
-  }
+  assert(
+    line.includes(", '" + version + "'"),
+    asset + ' must pass version ' + version + ' to $asset()',
+  );
 }
-
+assert(layout.includes("$css('/css/device.css')"), 'device.css must be versioned by Url::css()');
+assert(!layout.includes('&v='), 'no view may append a second &v= parameter');
+assert(source.includes("'./assets/css/device.css?v=1.2.1'"), 'the shell precaches the exact CSS URL');
 
 async function scenario(scope) {
   const listeners = {};
@@ -129,11 +141,12 @@ async function scenario(scope) {
   assert(precached.includes("./device"));
   assert(precached.includes("./device/offline"));
   assert(precached.includes("./assets/js/device.js?v=1.2.0"));
+  assert(precached.includes("./assets/css/device.css?v=1.2.1"));
   assert(precached.includes("./assets/js/device-queue.js?v=1.1.0"));
   assert(!precached.some((item) => item.includes("/assets/models/")), "models must not block install");
   for (const clip of ['entry', 'exit', 'error']) {
     assert(precached.includes('./assets/audio/' + clip + '.mp3?v=1.1.0'));
-    assert(networkRequests.includes('./assets/audio/' + clip + '.mp3?v=1.1.0'), "v11 fetches the new URL during install");
+    assert(networkRequests.includes('./assets/audio/' + clip + '.mp3?v=1.1.0'), "v12 fetches the new URL during install");
     assert(!networkRequests.includes('./assets/audio/' + clip + '.mp3?v=1.0.9'));
     const file = fs.readFileSync(path.join(__dirname, '..', 'assets', 'audio', clip + '.mp3'));
     assert(file.length > 0 && file.length < 50 * 1024, 'audio must be lightweight');
@@ -184,10 +197,10 @@ async function scenario(scope) {
   // The core installs without invoking the network for any model.
   listeners.message({data: "CACHE_MODELS", waitUntil(p) {pending = p;}});
   await pending;
-  assert(stores.get("sarmad-kiosk-v11").has(resolve("./assets/models/face-api-1.0.0/face_recognition_model-shard1")));
-  assert.equal(stores.get("sarmad-kiosk-v11").get(resolve("./assets/models/face-api-1.0.0/tiny_face_detector_model-shard1")).body, "v9-preferred-model");
-  assert.equal(stores.get("sarmad-kiosk-v11").get(resolve("./assets/models/face-api-1.0.0/ssd_mobilenetv1_model-shard1")).body, "v9-model");
-  assert.equal(stores.get("sarmad-kiosk-v11").get(resolve("./assets/models/face-api-1.0.0/face_landmark_68_model-shard1")).body, "v8-only-model");
+  assert(stores.get("sarmad-kiosk-v12").has(resolve("./assets/models/face-api-1.0.0/face_recognition_model-shard1")));
+  assert.equal(stores.get("sarmad-kiosk-v12").get(resolve("./assets/models/face-api-1.0.0/tiny_face_detector_model-shard1")).body, "v9-preferred-model");
+  assert.equal(stores.get("sarmad-kiosk-v12").get(resolve("./assets/models/face-api-1.0.0/ssd_mobilenetv1_model-shard1")).body, "v9-model");
+  assert.equal(stores.get("sarmad-kiosk-v12").get(resolve("./assets/models/face-api-1.0.0/face_landmark_68_model-shard1")).body, "v8-only-model");
   assert.equal((await request(base + "device")).body, "network");
   online = false;
   assert.equal((await request(base + "device?x=1")).body, "./device");
@@ -212,7 +225,7 @@ async function scenario(scope) {
     ).body,
     "old-model",
   );
-  const cache = stores.get("sarmad-kiosk-v11");
+  const cache = stores.get("sarmad-kiosk-v12");
   cache.delete(resolve("./device"));
   assert.equal((await request(base + "device")).body, "./device/offline");
   cache.delete(resolve("./device/offline"));

@@ -50,7 +50,7 @@ if (is_array($user) && !empty($user['name'])) {
     <meta name="theme-color" content="#070b14">
     <?= $csrfMeta() ?>
     <title><?= $e($title ?? 'پنل مالک') ?> | <?= $e($platformName) ?></title>
-    <link rel="stylesheet" href="<?= $e($asset('css/owner.css')) ?>">
+    <link rel="stylesheet" href="<?= $e($css('css/owner.css')) ?>">
 </head>
 <body class="o-body">
 

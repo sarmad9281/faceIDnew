@@ -124,9 +124,13 @@ bash tests/move_folder_check.sh http://localhost:8080 http://localhost:8080
 php tests/stage20_tests.php            # بارکد + برند + آپلود صفر بایتی (دیتابیس واقعی)
 node tests/device_qr_test.js           # ماژول بارکد کیوسک (بدون نیاز به سرور)
 node tests/service_worker_offline_test.js
+
+# تست مهار لوگو، ابعاد کارت پرسنلی و نسخه‌گذاری استایل‌ها (تسک ۲۱)
+node tests/stage21_assets_test.js      # 83 بررسی روی مارک‌آپ و CSS واقعی
 ```
 
-جزئیات تسک ۲۰ (قالب بارکد، برند فقط‌مالک، مسیر آفلاین) در `docs/STAGE20.md` آمده است.
+جزئیات تسک ۲۰ (قالب بارکد، برند فقط‌مالک، مسیر آفلاین) در `docs/STAGE20.md` و جزئیات
+تسک ۲۱ (مهار صلب لوگو، کارت ۸۰ میلی‌متری، `?v=1.2.1`) در `docs/STAGE21.md` آمده است.
 
 ---
 

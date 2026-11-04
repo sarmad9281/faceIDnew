@@ -408,4 +408,4 @@ $flagList = static function ($flagsRaw) use ($flags): array {
     }());
 </script>
 
-<script src="<?= $e($asset('/js/manager-attendance.js')) ?>&v=1.0.9" defer></script>
+<script src="<?= $e($asset('/js/manager-attendance.js', '1.0.9')) ?>" defer></script>

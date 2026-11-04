@@ -25,15 +25,18 @@
    lives in localStorage and is only attached to requests by the page itself.
    ===================================================================== */
 
-const CACHE = 'sarmad-kiosk-v11';
+const CACHE = 'sarmad-kiosk-v12';
 // Keep the previous model cache available during upgrades; core installation
 // must not wait for large model downloads on slow mobile networks.
-const PREVIOUS_MODEL_CACHES = ['sarmad-kiosk-v10', 'sarmad-kiosk-v9', 'sarmad-kiosk-v8', 'sarmad-kiosk-v7'];
+const PREVIOUS_MODEL_CACHES = ['sarmad-kiosk-v11', 'sarmad-kiosk-v10', 'sarmad-kiosk-v9', 'sarmad-kiosk-v8', 'sarmad-kiosk-v7'];
 
 const CORE_SHELL = [
     './device',
     './device/offline',
-    './assets/css/device.css',
+    /* STAGE 21 - the stylesheet URL carries ?v=1.2.1 (Url::CSS_VERSION);
+       precaching the exact URL the page asks for keeps cache-first
+       serving in sync with the markup. */
+    './assets/css/device.css?v=1.2.1',
     './assets/js/device-queue.js?v=1.1.0',
     /* Stage 20 - the QR badge fallback must work offline like the face path:
        the decoder and its digest matcher are part of the core shell. */

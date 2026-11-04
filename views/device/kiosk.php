@@ -29,7 +29,10 @@
          ------------------------------------------------------------------ -->
     <header class="k-top">
         <div class="k-brand">
-            <img class="k-logo" id="k-logo" alt="" hidden>
+            <?php /* STAGE 21 - the size is enforced inline, so a big upload
+                     cannot stretch the kiosk top bar before device.css loads. */ ?>
+            <img class="k-logo" id="k-logo" alt="" hidden
+                 style="max-height: 42px; max-width: 130px; width: auto; height: auto; object-fit: contain; display: block;">
             <div class="k-logo" id="k-logo-fallback" title="تنظیمات دستگاه (نگه داشتن)">SA</div>
             <div class="k-brand-text">
                 <h1 class="k-business" id="k-business">SARMAD Attendance</h1>
