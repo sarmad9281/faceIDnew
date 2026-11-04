@@ -71,6 +71,8 @@ final class AttendanceEngine
     public const CODE_OFFLINE_INVALID = 'OFFLINE_EVENT_INVALID';
     public const CODE_REJECTED = 'ATTENDANCE_REJECTED';
     public const CODE_NO_SHIFT = 'NO_SHIFT_FOR_DAY';
+    public const CODE_QR_INVALID = 'QR_INVALID';
+    public const CODE_QR_FOREIGN = 'QR_FOREIGN_TENANT';
     public const CODE_NOT_FOUND = 'RECORD_NOT_FOUND';
 
     private FaceDatasetService $faces;
@@ -93,10 +95,67 @@ final class AttendanceEngine
      */
     public function recordEntry(array $device, array $payload): array
     {
-        $result = $this->record($device, $payload, 'entry');
+        $result = $this->record($device, $payload, 'entry', false, $this->credentialOf($payload));
         $this->logDeviceAttempt($device, 'entry', $result, $payload);
 
         return $result;
+    }
+
+    /**
+     * STAGE 20 - a punch made with the employee QR BADGE instead of a face.
+     *
+     * Two things are different from the face path, and only two:
+     *
+     *   1. the CREDENTIAL is the badge: the payload carries the scanned string
+     *      `SARMADQ1.<c>.<e>.<hmac>` and the server derives the employee from
+     *      it (a bare employee id is never accepted, exactly like a bare id is
+     *      useless on the face path). The HMAC is verified with the
+     *      installation key, so a forged/edited badge is refused;
+     *   2. the 3/3 face dataset is NOT required - the whole point of the badge
+     *      is the employee whose face does not match (glasses, mask, beard,
+     *      bad light). Everything else (tenant, branch, active employee, open
+     *      session, duplicates, shift math) is the SAME code path.
+     *
+     * `source` is written as `device_qr` / `device_qr_offline`, so a badge
+     * punch is visible as such in every report and audit row.
+     *
+     * Nothing here touches the filesystem: no frame, no crop, no thumbnail.
+     */
+    public function recordQr(array $device, array $payload, string $action): array
+    {
+        $payload['credential'] = 'qr';
+
+        $result = $this->record($device, $payload, $action, false, 'qr');
+        $this->logDeviceAttempt($device, $action, $result, $payload);
+
+        return $result;
+    }
+
+    /**
+     * The `source` written on the record: the same vocabulary the reports and
+     * the audit trail already use, extended with the two badge values.
+     */
+    private function sourceFor(string $credential, bool $offline): string
+    {
+        if ($credential === 'qr') {
+            return $offline ? 'device_qr_offline' : 'device_qr';
+        }
+
+        return $offline ? 'device_offline' : 'device';
+    }
+
+    /**
+     * Which credential does this request claim?
+     *
+     * Only the exact string 'qr' switches the path; anything else (including a
+     * missing field, which is what every pre-stage-20 client sends) stays on
+     * the face proof path.
+     *
+     * @param array<string,mixed> $payload
+     */
+    private function credentialOf(array $payload): string
+    {
+        return strtolower(trim((string) ($payload['credential'] ?? ''))) === 'qr' ? 'qr' : 'face';
     }
 
     /**
@@ -118,7 +177,7 @@ final class AttendanceEngine
     public function recordOfflineEvent(array $device, array $payload, string $action): array
     {
         $payload = $payload + ['offline' => true];
-        $result  = $this->record($device, $payload, $action, true);
+        $result  = $this->record($device, $payload, $action, true, $this->credentialOf($payload));
 
         // A queued event is an attempt of this device exactly like an online
         // punch: it must show up on the device page (device_logs) with its
@@ -133,7 +192,7 @@ final class AttendanceEngine
      */
     public function recordExit(array $device, array $payload): array
     {
-        $result = $this->record($device, $payload, 'exit');
+        $result = $this->record($device, $payload, 'exit', false, $this->credentialOf($payload));
         $this->logDeviceAttempt($device, 'exit', $result, $payload);
 
         return $result;
@@ -143,7 +202,7 @@ final class AttendanceEngine
      * The one code path both actions use. `$action` is 'entry' or 'exit' and
      * is decided by the ROUTE, never by a client field.
      */
-    private function record(array $device, array $payload, string $action, bool $offline = false): array
+    private function record(array $device, array $payload, string $action, bool $offline = false, string $credential = 'face'): array
     {
         $deviceId   = (int) $device['id'];
         $customerId = (int) $device['customer_id'];
@@ -158,7 +217,14 @@ final class AttendanceEngine
 
         $proofUuid = trim((string) ($payload['proof'] ?? $payload['recognition_proof'] ?? ''));
 
-        if ($proofUuid === '' && !$offline) {
+        // A QR badge is its own credential, so it does not come with a
+        // recognition proof - the badge IS the proof and it is verified inside
+        // the transaction (signature + tenant + employee status).
+        if ($credential === 'qr') {
+            $proofUuid = '';
+        }
+
+        if ($proofUuid === '' && !$offline && $credential !== 'qr') {
             $this->denied($customerId, $deviceId, 'attendance.proof.missing', ['request_id' => $requestId, 'action' => $action]);
 
             return $this->fail(self::CODE_INVALID_RECOGNITION,
@@ -174,7 +240,7 @@ final class AttendanceEngine
         }
 
         try {
-            return $this->runInTransaction($device, $payload, $action, $proofUuid, $idempotency, $requestId, $offline);
+            return $this->runInTransaction($device, $payload, $action, $proofUuid, $idempotency, $requestId, $offline, $credential);
         } catch (PDOException $error) {
             return $this->mapDuplicate($error, $action);
         } catch (Throwable $error) {
@@ -194,13 +260,21 @@ final class AttendanceEngine
      *
      * @return array<string,mixed>
      */
-    private function runInTransaction(array $device, array $payload, string $action, string $proofUuid, string $idempotency, string $requestId, bool $offline = false): array
-    {
+    private function runInTransaction(
+        array $device,
+        array $payload,
+        string $action,
+        string $proofUuid,
+        string $idempotency,
+        string $requestId,
+        bool $offline = false,
+        string $credential = 'face'
+    ): array {
         $deviceId   = (int) $device['id'];
         $customerId = (int) $device['customer_id'];
         $branchId   = isset($device['branch_id']) ? (int) $device['branch_id'] : 0;
 
-        return Database::transaction(function () use ($device, $payload, $action, $proofUuid, $idempotency, $requestId, $deviceId, $customerId, $branchId, $offline) {
+        return Database::transaction(function () use ($device, $payload, $action, $proofUuid, $idempotency, $requestId, $deviceId, $customerId, $branchId, $offline, $credential) {
             // ---- 1. idempotency: has this exact request already produced a row?
             $existing = AttendanceRecord::byIdempotency($customerId, $idempotency);
 
@@ -223,7 +297,71 @@ final class AttendanceEngine
             // ---- 3. where does the employee id come from? ------------------
             $proof = null;
 
-            if ($offline) {
+            if ($credential === 'qr') {
+                // ---- 3a. QR BADGE (stage 20) -------------------------------
+                // The employee is derived from the BADGE, never from a client
+                // supplied id:
+                //   online  -> the raw badge is verified here (HMAC with the
+                //              installation key + tenant binding),
+                //   offline -> the queued item carries the SHA-256 digest of
+                //              the badge the camera actually decoded; the
+                //              digest is re-derived from the employee row, so
+                //              a made up employee id can not be queued either.
+                $employeeId = 0;
+
+                if ($offline) {
+                    $employeeId = (int) ($payload['employee_id'] ?? 0);
+                    $digest     = (string) ($payload['qr_digest'] ?? '');
+
+                    if ($employeeId <= 0 || $digest === '') {
+                        $this->denied($customerId, $deviceId, 'attendance.qr.offline.incomplete', [
+                            'employee_id' => $employeeId,
+                        ]);
+
+                        return $this->fail(self::CODE_OFFLINE_INVALID,
+                            'رویداد آفلاین بارکد، شناسه پرسنل یا اثر بارکد را همراه ندارد.', 422);
+                    }
+
+                    if (!\App\Support\EmployeeQr::digestMatches($customerId, $employeeId, $digest)) {
+                        $this->denied($customerId, $deviceId, 'attendance.qr.offline.digest', [
+                            'employee_id' => $employeeId,
+                        ]);
+
+                        return $this->fail(self::CODE_QR_INVALID,
+                            'بارکد این رویداد آفلاین معتبر نیست.', 422);
+                    }
+                } else {
+                    $badge = \App\Support\EmployeeQr::verify(
+                        (string) ($payload['qr'] ?? ''),
+                        $customerId
+                    );
+
+                    if ($badge === null) {
+                        $this->denied($customerId, $deviceId, 'attendance.qr.invalid', [
+                            'request_id' => $requestId,
+                            'action'     => $action,
+                        ]);
+
+                        return $this->fail(self::CODE_QR_INVALID,
+                            'این بارکد معتبر نیست یا به این مجموعه تعلق ندارد. لطفاً با مسئول مجموعه تماس بگیرید.', 422);
+                    }
+
+                    $employeeId = (int) $badge['employee_id'];
+
+                    $claimed = (int) ($payload['employee_id'] ?? 0);
+
+                    if ($claimed > 0 && $claimed !== $employeeId) {
+                        $this->denied($customerId, $deviceId, 'attendance.qr.spoof', [
+                            'claimed'  => $claimed,
+                            'badge'    => $employeeId,
+                            'qr_bytes' => strlen((string) ($payload['qr'] ?? '')),
+                        ]);
+
+                        return $this->fail(self::CODE_QR_INVALID,
+                            'شناسه پرسنل با بارکد هم‌خوانی ندارد.', 409);
+                    }
+                }
+            } elseif ($offline) {
                 // Queued event: no server proof exists by definition. The local
                 // RECOGNITION RESULT travels with the queue item and is
                 // validated here - a queue item without a match distance is
@@ -313,7 +451,13 @@ final class AttendanceEngine
             }
 
             // ---- 5. the face registration must still be complete (3/3)
-            $faceState = $this->faces->stateForEmployee($employeeId, $customerId);
+            //          ... unless the punch is a QR badge one: the badge exists
+            //          precisely for the employee whose face does not match.
+            if ($credential === 'qr') {
+                $faceState = ['count' => FaceEmbedding::SAMPLES, 'model_version' => FaceDatasetService::modelVersion()];
+            } else {
+                $faceState = $this->faces->stateForEmployee($employeeId, $customerId);
+            }
 
             if ((int) $faceState['count'] !== FaceEmbedding::SAMPLES
                 || (string) $faceState['model_version'] !== FaceDatasetService::modelVersion()) {
@@ -325,7 +469,15 @@ final class AttendanceEngine
             }
 
             // ---- 6. consume the proof (single use, device bound, action bound)
-            $consumed = $offline ? [] : RecognitionProof::consume($proofUuid, $deviceId, $customerId, $employeeId, $action);
+            //          A QR punch has no proof to consume: the badge was
+            //          verified above and is bound to this employee, so there is
+            //          nothing to replay (a badge may legitimately be used twice
+            //          a day - once in, once out).
+            if ($credential === 'qr') {
+                $consumed = ['credential' => 'qr'];
+            } else {
+                $consumed = $offline ? [] : RecognitionProof::consume($proofUuid, $deviceId, $customerId, $employeeId, $action);
+            }
 
             if ($consumed === null) {
                 $this->denied($customerId, $deviceId, 'attendance.proof.replayed', ['proof' => substr($proofUuid, 0, 8), 'action' => $action]);
@@ -349,10 +501,10 @@ final class AttendanceEngine
 
             // ---- 8. the action itself
             if ($action === 'entry') {
-                return $this->insertEntry($device, $employee, $now, $eventAt, $date, $payload, $idempotency, $proofUuid, $proof, $offline, $skew, $requestId);
+                return $this->insertEntry($device, $employee, $now, $eventAt, $date, $payload, $idempotency, $proofUuid, $proof, $offline, $skew, $requestId, $credential);
             }
 
-            return $this->closeSession($device, $employee, $now, $eventAt, $payload, $idempotency, $proofUuid, $proof, $offline, $skew, $requestId);
+            return $this->closeSession($device, $employee, $now, $eventAt, $payload, $idempotency, $proofUuid, $proof, $offline, $skew, $requestId, $credential);
         });
     }
 
@@ -374,7 +526,8 @@ final class AttendanceEngine
         ?array $proof,
         bool $offline,
         bool $skew,
-        string $requestId
+        string $requestId,
+        string $credential = 'face'
     ): array {
         $deviceId   = (int) $device['id'];
         $customerId = (int) $device['customer_id'];
@@ -419,7 +572,7 @@ final class AttendanceEngine
             ? (string) $calc['status']
             : AttendanceCalculator::STATUS_INCOMPLETE;
 
-        $source = $offline ? 'device_offline' : 'device';
+        $source = $this->sourceFor($credential, $offline);
         $sessionIndex = AttendanceRecord::nextSessionIndex($customerId, $employeeId, $date);
 
         $recordId = Database::insert(Database::table('attendance_records'), [
@@ -444,23 +597,28 @@ final class AttendanceEngine
             'local_event_id'   => $this->localEventId($payload),
             'device_event_at'  => $offline ? $eventAt : null,
             'server_received_at' => $now,
-            'recognition_uuid' => $proofUuid,
+            // A badge punch has no recognition proof, so the column stays NULL
+            // instead of pointing at a row that does not exist.
+            'recognition_uuid' => $proofUuid === '' ? null : $proofUuid,
             'shift_snapshot'   => $shift === null ? null : json_encode(ShiftResolver::snapshot($shift), JSON_UNESCAPED_UNICODE),
             'calc_version'     => AttendanceCalculator::CALC_VERSION,
             'last_event'       => 'entry',
             'source'           => $source,
-            'match_score'      => $offline
-                ? (isset($payload['distance']) && is_numeric($payload['distance']) ? round(1 - (float) $payload['distance'], 4) : null)
-                : (isset($proof['confidence']) ? $proof['confidence'] : null),
+            'match_score'      => $credential === 'qr'
+                ? null
+                : ($offline
+                    ? (isset($payload['distance']) && is_numeric($payload['distance']) ? round(1 - (float) $payload['distance'], 4) : null)
+                    : (isset($proof['confidence']) ? $proof['confidence'] : null)),
             'meta'             => json_encode([
                 'request_id'    => $requestId,
                 'session_index' => $sessionIndex,
                 'sessions_before' => count($sessions),
                 'offline'       => $offline,
+                'credential'    => $credential,
             ], JSON_UNESCAPED_UNICODE),
         ]);
 
-        if (!$offline) {
+        if (!$offline && $credential !== 'qr') {
             RecognitionProof::markConsumedRecord($proofUuid, $recordId);
         }
 
@@ -504,7 +662,11 @@ final class AttendanceEngine
             'attendance', 'attendance_record', $recordId, $customerId);
 
         return $this->ok(self::CODE_RECORDED, 'ورود با موفقیت ثبت شد.', $this->resultData($record, 'entry', false) + [
-            'proof' => $proofUuid,
+            'proof'      => $proofUuid === '' ? null : $proofUuid,
+            'credential' => $credential,
+            // the kiosk prints the success card from this brief (it is the
+            // employee the server - not the client - resolved)
+            'employee'   => $this->employeeBrief($employee),
         ]);
     }
 
@@ -524,7 +686,8 @@ final class AttendanceEngine
         ?array $proof,
         bool $offline,
         bool $skew,
-        string $requestId
+        string $requestId,
+        string $credential = 'face'
     ): array {
         $deviceId   = (int) $device['id'];
         $customerId = (int) $device['customer_id'];
@@ -576,14 +739,17 @@ final class AttendanceEngine
             $flags[] = AttendanceCalculator::FLAG_CLOCK_SKEW;
         }
 
+        $source = $this->sourceFor($credential, $offline);
+
         Database::run(
             'UPDATE `' . Database::table('attendance_records') . '`'
-            . ' SET `exit_at` = ?, `work_minutes` = ?, `late_minutes` = ?, `early_leave_minutes` = ?,'
+            . ' SET `source` = ?, `exit_at` = ?, `work_minutes` = ?, `late_minutes` = ?, `early_leave_minutes` = ?,'
             . ' `overtime_minutes` = ?, `status` = ?, `flags` = ?, `open_key` = NULL,'
             . ' `idempotency_key` = ?, `local_exit_event_id` = ?, `device_exit_at` = ?, `server_exit_received_at` = ?,'
             . ' `recognition_uuid` = ?, `shift_snapshot` = ?, `calc_version` = ?, `last_event` = ?'
             . ' WHERE `id` = ? AND `customer_id` = ? AND `open_key` IS NOT NULL',
             [
+                $source,
                 $eventAt,
                 (int) $dayTotal['work_minutes'],
                 (int) $dayTotal['late_minutes'],
@@ -595,7 +761,7 @@ final class AttendanceEngine
                 $this->localEventId($payload),
                 $offline ? $eventAt : null,
                 $now,
-                $proofUuid,
+                $proofUuid === '' ? null : $proofUuid,
                 $shift === null ? null : json_encode(ShiftResolver::snapshot($shift), JSON_UNESCAPED_UNICODE),
                 AttendanceCalculator::CALC_VERSION,
                 'exit',
@@ -604,7 +770,7 @@ final class AttendanceEngine
             ]
         );
 
-        if (!$offline) {
+        if (!$offline && $credential !== 'qr') {
             RecognitionProof::markConsumedRecord($proofUuid, (int) $open['id']);
         }
 
@@ -639,7 +805,9 @@ final class AttendanceEngine
             'attendance', 'attendance_record', (int) $open['id'], $customerId);
 
         return $this->ok(self::CODE_RECORDED, 'خروج با موفقیت ثبت شد.', $this->resultData($record, 'exit', false) + [
-            'proof' => $proofUuid,
+            'proof'      => $proofUuid === '' ? null : $proofUuid,
+            'credential' => $credential,
+            'employee'   => $this->employeeBrief($employee),
         ]);
     }
 
@@ -727,9 +895,17 @@ final class AttendanceEngine
                 continue;
             }
 
+            // STAGE 20 - the queue item may be a QR badge punch. It carries the
+            // DIGEST of the scanned badge instead of a face distance; the
+            // engine re-derives that digest from the employee row, so the
+            // distance rule only applies to face items.
+            $credential = strtolower(trim((string) ($event['credential'] ?? ''))) === 'qr' ? 'qr' : 'face';
+
             $eventPayload = [
                 'request_id'      => 'offline-' . substr($localId, 0, 40),
                 'proof'           => (string) ($event['proof'] ?? ''),
+                'credential'      => $credential,
+                'qr_digest'       => (string) ($event['qr_digest'] ?? ''),
                 'employee_id'     => (int) ($event['employee_id'] ?? 0),
                 'distance'        => $event['distance'] ?? null,
                 'confidence'      => $event['confidence'] ?? null,
@@ -744,11 +920,15 @@ final class AttendanceEngine
             // exists for seconds and is issued by the server); it carries the
             // local recognition result instead. If a proof IS present it is
             // used, which makes both paths equally strict.
-            $outcome = $eventPayload['proof'] !== ''
-                ? ($type === 'entry'
-                    ? $this->recordEntry($device, $eventPayload)
-                    : $this->recordExit($device, $eventPayload))
-                : $this->recordOfflineEvent($device, $eventPayload, $type);
+            if ($credential === 'qr') {
+                $outcome = $this->recordOfflineEvent($device, $eventPayload, $type);
+            } else {
+                $outcome = $eventPayload['proof'] !== ''
+                    ? ($type === 'entry'
+                        ? $this->recordEntry($device, $eventPayload)
+                        : $this->recordExit($device, $eventPayload))
+                    : $this->recordOfflineEvent($device, $eventPayload, $type);
+            }
 
             $duplicate = ($outcome['ok'] && !empty($outcome['data']['duplicate']))
                 || (!$outcome['ok'] && in_array($outcome['code'], [self::CODE_ENTRY_OPEN, self::CODE_DUPLICATE], true));
@@ -766,6 +946,7 @@ final class AttendanceEngine
                 'index'          => $index,
                 'local_event_id' => $localId,
                 'type'           => $type,
+                'credential'     => $credential,
                 'status'         => $status,
                 'code'           => $outcome['code'],
                 'message'        => $outcome['message'],

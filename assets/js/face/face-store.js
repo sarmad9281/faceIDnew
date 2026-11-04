@@ -112,6 +112,11 @@
             ambiguity_margin: dataset.ambiguity_margin || null,
             samples_required: dataset.samples_required || 3,
             employees: dataset.employees || [],
+            // STAGE 20 - the QR badge digests of this customer. Only the
+            // SHA-256 DIGEST of each badge is stored, never the badge itself
+            // and never an image: the kiosk can match a scanned code offline
+            // and still can not print one.
+            qr: dataset.qr || null,
             synced_at: new Date().toISOString()
         };
 

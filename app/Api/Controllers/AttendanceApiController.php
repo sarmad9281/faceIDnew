@@ -107,7 +107,7 @@ final class AttendanceApiController
             'status_label'    => AttendanceCalculator::statusLabel((string) $row['status']),
             'flags'           => array_values(array_filter(explode(',', (string) $row['flags']))),
             'source'          => (string) $row['source'],
-            'is_offline'      => (string) $row['source'] === 'device_offline',
+            'is_offline'      => in_array((string) $row['source'], ['device_offline', 'device_qr_offline'], true),
         ], $inside);
 
         return ApiResponse::success([
@@ -195,7 +195,7 @@ final class AttendanceApiController
             'flags'             => $flags,
             'flag_labels'       => array_map([AttendanceCalculator::class, 'flagLabel'], $flags),
             'source'            => (string) $row['source'],
-            'is_offline'        => (string) $row['source'] === 'device_offline',
+            'is_offline'        => in_array((string) $row['source'], ['device_offline', 'device_qr_offline'], true),
             'is_open'           => !empty($row['open_key']),
             'session_index'     => isset($row['session_index']) ? (int) $row['session_index'] : null,
             'device_event_at'   => $row['device_event_at'] ?? null,

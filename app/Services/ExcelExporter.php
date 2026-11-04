@@ -111,8 +111,18 @@ final class ExcelExporter
         $sheet->getRowDimension(1)->setRowHeight(30);
 
         $customerName = (string) ($meta['customer_name'] ?? '');
+        $brandName    = trim((string) ($meta['brand_name'] ?? ''));
 
-        $sheet->setCellValue('A2', 'مجموعه: ' . $customerName);
+        // STAGE 20 - «مجموعه: برند» on the printed sheet. The brand is what the
+        // customer sees on the kiosk and in the panel header, so the sheet says
+        // the same thing; the tenant name is still there when they differ.
+        $headLine = $brandName !== '' ? $brandName : $customerName;
+
+        if ($brandName !== '' && $customerName !== '' && $brandName !== $customerName) {
+            $headLine .= ' (' . $customerName . ')';
+        }
+
+        $sheet->setCellValue('A2', 'مجموعه: ' . $headLine);
 
         // Jalali only: a raw "2025-10-01 تا 2025-10-06" is what the customer
         // complained about, so the Gregorian range stays in the filename and in

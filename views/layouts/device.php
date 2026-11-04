@@ -76,6 +76,11 @@ $deviceState = $deviceState ?? 'unactivated';
 <script src="<?= $e($asset('/js/face/face-engine.js')) ?>&v=1.1.0" defer></script>
 <script src="<?= $e($asset('/js/face/face-store.js')) ?>&v=1.1.0" defer></script>
 <script src="<?= $e($asset('/js/device-queue.js')) ?>&v=1.1.0" defer></script>
-<script src="<?= $e($asset('/js/device.js')) ?>&v=1.1.0" defer></script>
+<?php /* Stage 20 - QR badge reader: jsQR decodes the symbol IN MEMORY (no
+         image is uploaded or stored anywhere), device-qr.js hashes it and
+         matches it against the digest list downloaded with the face data. */ ?>
+<script src="<?= $e($asset('/vendor/jsQR.min.js')) ?>" defer></script>
+<script src="<?= $e($asset('/js/device-qr.js')) ?>&v=1.2.0" defer></script>
+<script src="<?= $e($asset('/js/device.js')) ?>&v=1.2.0" defer></script>
 </body>
 </html>

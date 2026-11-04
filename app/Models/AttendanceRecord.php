@@ -39,12 +39,15 @@ final class AttendanceRecord extends Model
 
     /** منابع مجاز یک رکورد. */
     public const SOURCES = [
-        'device'          => 'دستگاه (آنلاین)',
-        'device_offline'  => 'دستگاه (آفلاین - هم‌گام‌شده)',
-        'manual'          => 'اصلاح دستی',
-        'import'          => 'ورود گروهی',
-        'api'             => 'API',
-        'system'          => 'سیستم (محاسبه‌شده)',
+        'device'            => 'دستگاه (آنلاین)',
+        'device_offline'    => 'دستگاه (آفلاین - هم‌گام‌شده)',
+        // STAGE 20 - a punch made with the employee QR badge instead of a face
+        'device_qr'         => 'بارکد پرسنلی (آنلاین)',
+        'device_qr_offline' => 'بارکد پرسنلی (آفلاین - هم‌گام‌شده)',
+        'manual'            => 'اصلاح دستی',
+        'import'            => 'ورود گروهی',
+        'api'               => 'API',
+        'system'            => 'سیستم (محاسبه‌شده)',
     ];
 
     protected static array $fillable = [
@@ -215,9 +218,12 @@ final class AttendanceRecord extends Model
         $origin = (string) ($filters['origin'] ?? '');
 
         if ($origin === 'online') {
-            $where[] = "r.`source` = 'device'";
+            $where[] = "r.`source` IN ('device','device_qr')";
         } elseif ($origin === 'offline') {
-            $where[] = "r.`source` = 'device_offline'";
+            $where[] = "r.`source` IN ('device_offline','device_qr_offline')";
+        } elseif ($origin === 'qr') {
+            // STAGE 20 - «فقط ترددهای بارکد»
+            $where[] = "r.`source` IN ('device_qr','device_qr_offline')";
         } elseif ($origin === 'manual') {
             $where[] = "r.`source` IN ('manual','import','api')";
         }

@@ -93,6 +93,13 @@ return static function (Router $router): void {
     $router->post('/api/v1/device/attendance/exit', [DeviceKioskController::class, 'attendanceExit'],
         ['api', 'device.token', 'throttle:240,1'], 'api.device.attendance.exit');
 
+    /* Stage 20 - the QR badge fallback: an employee whose face does not match
+     * holds his printed badge up to the camera. The kiosk decodes the symbol
+     * in memory and posts the STRING; no image is uploaded and nothing is
+     * written to the disk. Same engine, same success screen, same voice. */
+    $router->post('/api/v1/device/attendance/qr', [DeviceKioskController::class, 'attendanceQr'],
+        ['api', 'device.token', 'throttle:240,1'], 'api.device.attendance.qr');
+
     // Offline queue: a BATCH of events, each answered ACCEPTED / DUPLICATE /
     // REJECTED / INVALID so the kiosk knows what it may drop.
     $router->post('/api/v1/device/attendance/sync', [DeviceKioskController::class, 'attendanceSync'],

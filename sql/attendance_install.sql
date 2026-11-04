@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS `attendance_customers` (
   `name`              VARCHAR(150) NOT NULL,
   `slug`              VARCHAR(120) NOT NULL,
   `company_name`      VARCHAR(180) DEFAULT NULL,
+  `brand_name`        VARCHAR(120) DEFAULT NULL,
   `contact_email`     VARCHAR(190) DEFAULT NULL,
   `contact_phone`     VARCHAR(25)  DEFAULT NULL,
   `address`           VARCHAR(255) DEFAULT NULL,

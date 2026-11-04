@@ -61,7 +61,7 @@ final class AttendanceController
             'branch_id'   => $branchesEnabled ? (int) $request->int('branch_id', 0) : 0,
             'shift_id'    => (int) $request->int('shift_id', 0),
             'status'      => Input::choice($request->input('status', ''), AttendanceRecord::STATUSES),
-            'origin'      => Input::choice($request->input('origin', ''), ['online' => '1', 'offline' => '1', 'manual' => '1']),
+            'origin'      => Input::choice($request->input('origin', ''), ['online' => '1', 'offline' => '1', 'qr' => '1', 'manual' => '1']),
             'flag'        => Input::choice($request->input('flag', ''), AttendanceCalculator::flagLabels()),
             'late'        => Input::bool($request->input('late', '0')),
             'early'       => Input::bool($request->input('early', '0')),
@@ -124,7 +124,7 @@ final class AttendanceController
             'inside_minutes' => max(0, (int) $row['inside_minutes']),
             'inside_label'   => AttendanceCalculator::minutesLabel((int) $row['inside_minutes'], false),
             'status'         => (string) $row['status'],
-            'is_offline'     => (string) $row['source'] === 'device_offline',
+            'is_offline'     => in_array((string) $row['source'], ['device_offline', 'device_qr_offline'], true),
         ], $engine->currentlyInside($customerId, $branchId, 500));
         $total = $engine->countCurrentlyInside($customerId, $branchId);
 

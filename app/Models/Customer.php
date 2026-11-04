@@ -16,21 +16,27 @@ final class Customer extends Model
     protected static bool $softDeletes = true;
 
     protected static array $fillable = [
-        'uuid', 'name', 'slug', 'company_name', 'contact_email', 'contact_phone', 'address',
+        'uuid', 'name', 'slug', 'company_name', 'brand_name', 'contact_email', 'contact_phone', 'address',
         'logo_path', 'timezone', 'locale', 'date_system', 'subscription_plan',
         'max_employees', 'max_devices', 'status', 'settings', 'trial_ends_at', 'created_by',
     ];
 
     /**
-     * The ONLY customer columns a manager may change: the business identity
-     * of his own customer. Subscription, feature flags and status are owner
-     * level and are silently dropped here even if they arrive in the payload.
+     * The ONLY customer columns a MANAGER may change: the contact identity of
+     * his own customer. Subscription, feature flags and status are owner level
+     * and are silently dropped here even if they arrive in the payload.
+     *
+     * STAGE 20: `logo_path` and `brand_name` are NOT in this list any more.
+     * Branding (the VIP logo + brand name) belongs to the OWNER of the
+     * platform; a manager who posts a logo gets nothing but a refusal. Both
+     * columns are written exclusively through updateBranding() below, which is
+     * only reachable from an `owner` route.
      *
      * @param array<string,mixed> $data
      */
     public static function updateProfile(int $customerId, array $data): int
     {
-        $allowed = ['name', 'company_name', 'contact_email', 'contact_phone', 'address', 'logo_path', 'timezone'];
+        $allowed = ['name', 'company_name', 'contact_email', 'contact_phone', 'address', 'timezone'];
 
         $payload = [];
 
@@ -301,6 +307,66 @@ final class Customer extends Model
         self::updateById($customerId, ['status' => $status]);
 
         return true;
+    }
+
+    /**
+     * The branding of a customer, written ONLY by an owner route (stage 20).
+     *
+     * Deliberately narrow: a brand name and a logo path - nothing else. Even
+     * when this method is called with a status / feature / subscription key in
+     * the array, those keys are dropped.
+     *
+     * @param array<string,mixed> $data
+     */
+    public static function updateBranding(int $customerId, array $data): int
+    {
+        $allowed = ['brand_name', 'logo_path'];
+        $payload = [];
+
+        foreach ($allowed as $column) {
+            if (array_key_exists($column, $data)) {
+                $payload[$column] = $data[$column];
+            }
+        }
+
+        if ($payload === []) {
+            return 0;
+        }
+
+        return self::updateById($customerId, $payload);
+    }
+
+    /**
+     * The display name of the brand.
+     *
+     * Falls back to the company name and then to the tenant name, so a
+     * customer that never had a brand set keeps showing something meaningful
+     * on the kiosk, in the panel header and on printed reports.
+     *
+     * @param array<string,mixed> $customer
+     */
+    public static function brandName(array $customer): string
+    {
+        foreach (['brand_name', 'company_name', 'name'] as $column) {
+            $value = trim((string) ($customer[$column] ?? ''));
+
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Does this customer have a CUSTOM brand (name or logo) of his own?
+     *
+     * @param array<string,mixed> $customer
+     */
+    public static function hasBranding(array $customer): bool
+    {
+        return trim((string) ($customer['brand_name'] ?? '')) !== ''
+            || trim((string) ($customer['logo_path'] ?? '')) !== '';
     }
 
     /**

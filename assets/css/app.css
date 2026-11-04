@@ -104,3 +104,94 @@ code, .ltr { direction: ltr; text-align: left; font-family: Consolas, Monaco, mo
     display: block; background: var(--panel-2); border: 1px dashed var(--line);
     padding: 10px 12px; border-radius: 10px; margin: 8px 0; word-break: break-all;
 }
+
+/* =====================================================================
+   Stage 20 - BRAND LOCKUP (logo + brand name)
+   ---------------------------------------------------------------------
+   One rule, used by the kiosk, the panel header, the owner panel and the
+   printed report letterhead:
+
+       object-fit: contain; width: auto; max-height: <standard>;
+
+   A logo is never cropped, never stretched and never squashed: a wide
+   wordmark, a square icon and a tall badge all show completely, at their
+   own aspect ratio, with the transparent background of a PNG/WebP kept
+   intact (no gradient tile behind it).
+   ===================================================================== */
+.brand-logo {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 72px;
+    object-fit: contain;
+    object-position: center;
+    background: transparent;
+    border: 0;
+}
+
+.brand-logo.is-empty {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border: 1px dashed var(--line, #2a2f3a);
+    border-radius: 12px;
+    color: var(--muted, #94a3b8);
+    font-size: 12px;
+}
+
+/* The small read-only preview used in the manager settings panel. */
+.brand-preview {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 14px;
+    border: 1px solid var(--line, #2a2f3a);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .02);
+}
+
+.brand-preview .brand-logo {
+    max-height: 64px;
+    max-width: 180px;
+}
+
+.brand-name {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+/* Print letterhead of the panel (see .m-print-brand in layouts/app.php). */
+.m-print-brand {
+    display: none;
+}
+
+@media print {
+    .m-print-brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding-bottom: 10px;
+        margin-bottom: 14px;
+        border-bottom: 1.5pt solid #111;
+    }
+
+    .m-print-brand .brand-logo {
+        max-height: 64px;
+        max-width: 200px;
+    }
+
+    .m-print-brand-text strong {
+        display: block;
+        font-size: 15pt;
+        color: #111;
+    }
+
+    .m-print-brand-text small {
+        font-size: 10pt;
+        color: #444;
+    }
+}

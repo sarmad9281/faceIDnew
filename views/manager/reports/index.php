@@ -118,6 +118,7 @@ $exportQuery = static fn (): string => $url('/manager/reports/export?' . http_bu
                     <option value="">همه</option>
                     <option value="online" <?= $filters['origin'] === 'online' ? 'selected' : '' ?>>آنلاین دستگاه</option>
                     <option value="offline" <?= $filters['origin'] === 'offline' ? 'selected' : '' ?>>آفلاین (هم‌گام‌شده)</option>
+                    <option value="qr" <?= $filters['origin'] === 'qr' ? 'selected' : '' ?>>بارکد پرسنلی (QR)</option>
                     <option value="manual" <?= $filters['origin'] === 'manual' ? 'selected' : '' ?>>دستی</option>
                 </select>
             </label>

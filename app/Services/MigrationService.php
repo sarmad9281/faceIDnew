@@ -101,6 +101,15 @@ final class MigrationService
             'definition' => 'DATE DEFAULT NULL',
             'after'      => 'subscription_start_date',
         ],
+        // STAGE 20 - the VIP brand name of a customer (owner editable only).
+        // The logo itself is a file (`logo_path`) and needs no schema change;
+        // the name next to it does.
+        [
+            'table'      => 'customers',
+            'column'     => 'brand_name',
+            'definition' => 'VARCHAR(120) DEFAULT NULL',
+            'after'      => 'company_name',
+        ],
         [
             'table'      => 'audit_logs',
             'column'     => 'action',
@@ -541,6 +550,17 @@ final class MigrationService
             'sql'  => "ALTER TABLE {records} MODIFY COLUMN `source` "
                 . "ENUM('device','device_offline','manual','import','api','system') NOT NULL DEFAULT 'device'",
             'when' => 'type_lacks:records.source:device_offline',
+        ],
+        [
+            // STAGE 20 - a QR badge punch is its own source, so the reports can
+            // tell a badge from a face (and an online badge from a queued one)
+            // without guessing from the `meta` JSON. Same widening pattern as
+            // above: the guard looks at the live column type.
+            'key'  => 'records.source-enum-qr',
+            'sql'  => "ALTER TABLE {records} MODIFY COLUMN `source` "
+                . "ENUM('device','device_offline','device_qr','device_qr_offline','manual','import','api','system') "
+                . "NOT NULL DEFAULT 'device'",
+            'when' => 'type_lacks:records.source:device_qr',
         ],
     ];
 

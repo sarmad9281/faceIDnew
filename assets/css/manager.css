@@ -87,16 +87,38 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 
 .m-brand-mark {
-    width: 44px; height: 44px;
-    flex: 0 0 44px;
+    /* STAGE 20 - the tile GROWS with a wide logo instead of clipping it:
+       min 44x44 for the "SA" fallback, up to 132px wide for a wordmark. */
+    min-width: 44px; min-height: 44px;
+    width: auto; height: 44px;
+    flex: 0 0 auto;
+    padding: 4px 6px;
     border-radius: 14px;
     display: grid; place-items: center;
     background: linear-gradient(135deg, var(--m-primary), var(--m-primary-2));
     color: #fff; font-weight: 800; letter-spacing: .5px;
     box-shadow: 0 10px 24px rgba(79, 125, 255, .35);
-    overflow: hidden;
+    overflow: visible;
+    max-width: 132px;
 }
-.m-brand-mark img { width: 100%; height: 100%; object-fit: cover; }
+
+/* A real logo brings its own background - no purple tile behind it. */
+.m-brand-mark:has(img) {
+    background: rgba(255, 255, 255, .06);
+    box-shadow: none;
+    border: 1px solid var(--m-line);
+}
+/* STAGE 20 - the tenant logo inside the sidebar tile: contained, never
+   cropped (a wide wordmark used to be cut on both sides by `cover`). */
+.m-brand-mark img {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center;
+    background: transparent;
+}
 
 .m-brand-text { display: flex; flex-direction: column; min-width: 0; }
 .m-brand-text strong { font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -794,4 +816,133 @@ body.body-blank { background: radial-gradient(900px 600px at 50% -10%, rgba(79, 
     border-color: rgba(245, 158, 11, 0.35) !important;
     background: rgba(245, 158, 11, 0.09) !important;
     color: #ffe4b0 !important;
+}
+
+/* =====================================================================
+   Stage 20 - printable employee QR badge (views/manager/employees/profile)
+   ---------------------------------------------------------------------
+   The badge is a small card: brand lockup on top, the QR symbol in the
+   middle, the person and the code at the bottom. It is designed to look
+   right both on screen and on paper (A6-ish), and the print rules below
+   reduce the page to exactly this card.
+   ===================================================================== */
+.qr-badge-card {
+    width: 100%;
+    max-width: 420px;
+    margin: 14px 0;
+    padding: 18px;
+    border-radius: 18px;
+    border: 1px solid var(--m-line);
+    background: linear-gradient(160deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .015));
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+    text-align: center;
+}
+
+.qr-card-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.qr-card-brand .brand-logo {
+    max-height: 52px;
+    max-width: 200px;
+    margin-bottom: 4px;
+}
+
+.qr-card-brand strong {
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.qr-card-brand small {
+    color: var(--m-faint);
+    font-size: .74rem;
+}
+
+.qr-card-middle {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.qr-code {
+    width: 168px;
+    height: 168px;
+    padding: 10px;
+    border-radius: 14px;
+    background: #fff;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+}
+
+.qr-code svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.qr-card-person {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 130px;
+    text-align: start;
+}
+
+.qr-card-person strong { font-size: .95rem; }
+.qr-card-person span { color: var(--m-dim); font-size: .82rem; }
+
+.qr-card-foot {
+    margin: 0;
+    color: var(--m-faint);
+    font-size: .74rem;
+}
+
+.qr-card-value {
+    margin: 0;
+    font-size: .62rem;
+    color: var(--m-faint);
+    word-break: break-all;
+    direction: ltr;
+}
+
+@media print {
+    /* Only the badge card goes to the printer. */
+    .qr-card .muted.small,
+    .page-head,
+    .split > div > .card:not(.qr-card),
+    .m-print-brand {
+        display: none !important;
+    }
+
+    .qr-card {
+        border: 0;
+        padding: 0;
+        box-shadow: none;
+        background: #fff;
+    }
+
+    .qr-card .card-head h2 { color: #111; }
+
+    .qr-badge-card {
+        background: #fff;
+        border: 1.2pt solid #111;
+        color: #111;
+        page-break-inside: avoid;
+        max-width: 100%;
+    }
+
+    .qr-card-brand small,
+    .qr-card-foot,
+    .qr-card-value,
+    .qr-card-person span { color: #333; }
+
+    .qr-code { box-shadow: none; border: 1px solid #ddd; }
 }

@@ -7,12 +7,16 @@
  * @var array<string,mixed>|null $shift
  * @var array<int,array<string,mixed>|null> $faceSlots
  * @var int $faceCount
+ * @var string $qrPayload  stage 20 - the printable QR badge of this employee ('' when unavailable)
+ * @var string $brandName  stage 20 - the brand name the owner set for this customer
+ * @var string|null $brandLogoUrl
  * @var array<int,array<string,mixed>> $records
  * @var array<int,array<string,mixed>> $leaves
  * @var array<string,string> $statuses
  * @var callable $e
  * @var callable $url
  * @var callable $csrf
+ * @var callable $asset
  */
 
 use App\Models\AttendanceRecord;
@@ -57,6 +61,68 @@ $employment = [
         <a class="btn btn-primary" href="<?= $e($url('/manager/employees/' . $id . '/faces')) ?>">🎥 ثبت چهره با دوربین</a>
     </div>
 </div>
+
+<?php /* ==================================================================
+         STAGE 20 - the printable QR badge of this employee.
+         ------------------------------------------------------------------
+         The badge is the fallback for an employee whose FACE does not match
+         (mask, scarf, glasses, bad light). It carries an HMAC signed string
+         that the kiosk decodes IN MEMORY; the scan itself stores zero bytes
+         on the host and no image is ever produced here either - the symbol
+         below is an inline SVG built in the browser.
+         ================================================================== */ ?>
+<section class="card qr-card" id="qr-card">
+    <div class="card-head">
+        <h2>کارت بارکد پرسنلی</h2>
+        <?php if ($qrPayload !== ''): ?>
+            <div class="row-actions">
+                <button type="button" class="btn btn-primary" data-qr-print>چاپ کارت</button>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($qrPayload === ''): ?>
+        <p class="muted small">ساخت کارت بارکد برای این نصب ممکن نیست (کلید امنیتی سامانه تنظیم نشده است).</p>
+    <?php else: ?>
+        <p class="muted small">
+            این کارت برای پرسنلی است که چهره‌اش در دستگاه شناسایی نمی‌شود. کارت را چاپ کنید و به او بدهید؛
+            او در دستگاه حضور و غیاب، بارکد را مقابل دوربین می‌گیرد و تردد با همان صدای ثبت چهره تأیید می‌شود.
+            هیچ تصویری از این کارت در سرور ذخیره نمی‌شود.
+        </p>
+
+        <div class="qr-badge-card">
+            <div class="qr-card-brand">
+                <?php if (!empty($brandLogoUrl)): ?>
+                    <img class="brand-logo" src="<?= $e($brandLogoUrl) ?>" alt="لوگوی <?= $e($brandName) ?>">
+                <?php endif; ?>
+                <strong><?= $e($brandName !== '' ? $brandName : 'SARMAD Attendance') ?></strong>
+                <small>کارت تردد پرسنلی</small>
+            </div>
+
+            <div class="qr-card-middle">
+                <div class="qr-code" data-qr-badge="<?= $e($qrPayload) ?>" data-cell-size="6"></div>
+                <div class="qr-card-person">
+                    <strong><?= $e($fullName) ?></strong>
+                    <span class="ltr"><?= $e((string) ($employee['employee_code'] ?? '')) ?></span>
+                    <?php if (trim((string) ($employee['position'] ?? '')) !== ''): ?>
+                        <span><?= $e((string) $employee['position']) ?></span>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <p class="qr-card-foot">این بارکد را مقابل دوربین دستگاه حضور و غیاب بگیرید.</p>
+            <p class="qr-card-value ltr"><?= $e($qrPayload) ?></p>
+        </div>
+
+        <p class="muted small">
+            بارکد به همین مجموعه و همین پرسنل گره خورده است: کارت پرسنل دیگر یا مجموعه دیگر روی دستگاه شما پذیرفته نمی‌شود،
+            و با غیرفعال شدن پرسنل، کارت او هم از کار می‌افتد.
+        </p>
+
+        <script src="<?= $e($asset('/vendor/qrcode.min.js')) ?>"></script>
+        <script src="<?= $e($asset('/js/qr-badge.js')) ?>&v=1.2.0"></script>
+    <?php endif; ?>
+</section>
 
 <div class="split">
     <div>

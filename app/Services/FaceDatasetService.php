@@ -502,7 +502,80 @@ final class FaceDatasetService
             'branch_scoped'    => $branchScoped && $branchFeature && $branchId > 0,
             'branch_id'        => $branchId > 0 ? $branchId : null,
             'employees'        => $employees,
+            // STAGE 20 - the QR badge fallback. Only the DIGEST of each badge
+            // travels to the device (never the signature, never an image), so
+            // the kiosk can match a scanned code offline and still can not
+            // print a badge of its own. Employees WITHOUT a face dataset are in
+            // this list on purpose: the badge exists for exactly those people.
+            'qr'               => $this->qrForDevice($device),
             'generated_at'     => date('c'),
+        ];
+    }
+
+    /**
+     * The QR badges of this device's customer (stage 20).
+     *
+     * Every ACTIVE employee of the tenant (branch scoped when the branch
+     * feature is on and the device belongs to a branch) gets one entry:
+     *
+     *     { employee_id, full_name, employee_code, qr_digest }
+     *
+     * `qr_digest` = SHA-256 of the badge string. The badge itself is derived
+     * from the installation key and is never stored or sent anywhere: the
+     * kiosk hashes what the camera decoded and looks that hash up here.
+     *
+     * @param array<string,mixed> $device
+     * @return array{enabled:bool,format:string,employees:array<int,array<string,mixed>>}
+     */
+    public function qrForDevice(array $device): array
+    {
+        $customerId = (int) $device['customer_id'];
+        $branchId   = isset($device['branch_id']) ? (int) $device['branch_id'] : 0;
+
+        $branchScoped  = (bool) self::value('sync_branch_scoped', true);
+        $branchFeature = function_exists('feature_enabled') && \feature_enabled($customerId, 'branches');
+        $scoped        = $branchScoped && $branchFeature && $branchId > 0;
+
+        $sql = 'SELECT `id`, `first_name`, `last_name`, `employee_code`, `branch_id`'
+            . ' FROM `' . Database::table('employees') . '`'
+            . ' WHERE `customer_id` = ? AND `deleted_at` IS NULL AND `status` = ?';
+
+        $params = [$customerId, 'active'];
+
+        if ($scoped) {
+            $sql .= ' AND `branch_id` = ?';
+            $params[] = $branchId;
+        }
+
+        $sql .= ' ORDER BY `last_name` ASC, `first_name` ASC';
+
+        $employees = [];
+
+        try {
+            foreach (Database::select($sql, $params) as $row) {
+                $employees[] = [
+                    'employee_id'   => (int) $row['id'],
+                    'full_name'     => \App\Models\Employee::fullName($row),
+                    'employee_code' => $row['employee_code'] === null ? '' : (string) $row['employee_code'],
+                    'qr_digest'     => \App\Support\EmployeeQr::digestFor($customerId, (int) $row['id']),
+                ];
+            }
+        } catch (\Throwable $error) {
+            // No installation key (a mis-configured deployment): the badge
+            // feature is reported as OFF instead of handing out unsigned
+            // badges.
+            Logger::channel('app')->warning('QR badge list unavailable', [
+                'customer_id' => $customerId,
+                'message'     => $error->getMessage(),
+            ]);
+
+            return ['enabled' => false, 'format' => \App\Support\EmployeeQr::PREFIX, 'employees' => []];
+        }
+
+        return [
+            'enabled'   => true,
+            'format'    => \App\Support\EmployeeQr::PREFIX,
+            'employees' => $employees,
         ];
     }
 

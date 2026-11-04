@@ -129,7 +129,10 @@ final class ReportController
 
         $exporter = new ExcelExporter();
         $built    = $exporter->build($customerId, (string) $filters['type'], $filters, [
+            // STAGE 20 - the printed head block of the sheet carries the brand
+            // name the owner set (falling back to the company / tenant name).
             'customer_name' => (string) ($customer['name'] ?? ''),
+            'brand_name'    => is_array($customer) ? Customer::brandName($customer) : '',
             'employee_name' => $employee === null ? '' : Employee::fullName($employee),
             'branch_name'   => is_array($branch) ? (string) ($branch['name'] ?? '') : '',
             'shift_name'    => '',
@@ -188,7 +191,7 @@ final class ReportController
             'branch_id'   => $branchEnabled ? (int) $request->int('branch_id', 0) : 0,
             'shift_id'    => $shiftEnabled ? (int) $request->int('shift_id', 0) : 0,
             'status'      => Input::choice((string) $request->input('status', ''), array_keys(\App\Models\AttendanceRecord::STATUSES), ''),
-            'origin'      => Input::choice((string) $request->input('origin', ''), ['online' => 'online', 'offline' => 'offline', 'manual' => 'manual'], ''),
+            'origin'      => Input::choice((string) $request->input('origin', ''), ['online' => 'online', 'offline' => 'offline', 'qr' => 'qr', 'manual' => 'manual'], ''),
             'page'        => max(1, (int) $request->int('page', 1)),
         ];
     }

@@ -129,7 +129,7 @@ body.kiosk {
     width: clamp(56px, 7vh, 84px);
     height: clamp(56px, 7vh, 84px);
     border-radius: 20px;
-    object-fit: cover;
+    object-fit: contain;
     background: linear-gradient(140deg, var(--k-brand), var(--k-brand-2));
     display: grid;
     place-items: center;
@@ -139,6 +139,32 @@ body.kiosk {
     border: 1px solid var(--k-line-strong);
     flex: 0 0 auto;
     letter-spacing: 1px;
+}
+
+/* STAGE 20 - a REAL customer logo on the kiosk.
+   ---------------------------------------------------------------------
+   The square tile above is only the "SA" fallback. A customer logo keeps
+   its own aspect ratio and its own background:
+
+       object-fit: contain; width: auto; max-height: 88px;
+
+   so a wide wordmark, a square icon and a tall emblem are all shown
+   completely - never cropped, never stretched - and a transparent
+   PNG/WebP stays transparent (no gradient behind it). */
+img.k-logo {
+    width: auto;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+    max-width: clamp(120px, 26vw, 320px);
+    max-height: 88px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    object-fit: contain;
+    object-position: center;
+    box-shadow: none;
 }
 
 /* The logo <img> starts hidden; .k-logo's display:grid would otherwise
@@ -1189,6 +1215,7 @@ body.kiosk {
     }
     .k-brand { gap: 8px; flex: 1 1 auto; }
     .k-logo { width: 40px; height: 40px; border-radius: 12px; font-size: 17px; }
+    img.k-logo { width: auto; height: auto; max-width: 128px; max-height: 40px; border-radius: 0; }
     .k-business { font-size: clamp(14px, 2.2dvh, 18px); }
     .k-branch, .k-pill#k-device-pill { display: none; }
     .k-top-meta { flex: 0 0 auto; margin-inline-start: auto; gap: 6px; flex-wrap: nowrap; }
@@ -1324,4 +1351,47 @@ body.kiosk {
 
 @media print {
     body.kiosk { display: none; }
+}
+
+/* =====================================================================
+   Stage 20 - QR badge hint inside the camera overlay
+   ---------------------------------------------------------------------
+   A quiet line under the guidance text: the badge is the documented
+   FALLBACK, so it must be visible but must never compete with the face
+   frame (the primary path).
+   ===================================================================== */
+.k-qr-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 10px auto 0;
+    max-width: 520px;
+    padding: 8px 14px;
+    border-radius: 14px;
+    border: 1px dashed var(--k-line-strong);
+    background: rgba(255, 255, 255, .03);
+    color: var(--k-dim);
+    font-size: clamp(11px, 1.5vh, 14px);
+    line-height: 1.7;
+    text-align: center;
+}
+
+.k-qr-badge {
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: linear-gradient(140deg, var(--k-brand), var(--k-brand-2));
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .5px;
+}
+
+@media (max-width: 820px) {
+    .k-qr-hint { font-size: 11px; padding: 6px 10px; }
+    .k-qr-badge { width: 22px; height: 22px; font-size: 9px; }
 }

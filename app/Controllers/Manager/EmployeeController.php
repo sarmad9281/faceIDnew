@@ -283,6 +283,10 @@ final class EmployeeController
 
         $employeeId = (int) $employee['id'];
 
+        $customer      = Customer::find($customerId);
+        $brandName     = $customer !== null ? Customer::brandName($customer) : '';
+        $brandLogoUrl  = $customer !== null ? Customer::logoUrl($customer) : null;
+
         return Response::html(View::render('manager/employees/profile', [
             'title'          => 'پرونده پرسنل',
             'employee'       => Employee::profileInCustomer($employeeId, $customerId),
@@ -297,12 +301,38 @@ final class EmployeeController
             'leaves'         => Leave::forEmployee($employeeId, $customerId, 5),
             'statuses'       => self::STATUSES,
             'customer'       => Customer::find($customerId),
+            // STAGE 20 - the printable QR badge of this employee.
+            // The badge is DERIVED from (installation key, customer, employee):
+            // no column, no file, no image is created for it.
+            'qrPayload'      => $this->qrPayloadFor($customerId, $employeeId),
+            'brandName'      => $brandName,
+            'brandLogoUrl'   => $brandLogoUrl,
             'branchesEnabled' => \feature_enabled($customerId, 'branches'),
             'shiftsEnabled'  => \feature_enabled($customerId, 'shifts'),
             'faceEnabled'    => true,
             'error'          => Session::getFlash('error'),
             'success'        => Session::getFlash('success'),
         ], 'layouts/app'));
+    }
+
+    /**
+     * The badge string of one employee, or '' when the installation has no
+     * signing key (in that case the panel hides the card instead of printing a
+     * badge that no device would accept).
+     */
+    private function qrPayloadFor(int $customerId, int $employeeId): string
+    {
+        try {
+            return \App\Support\EmployeeQr::payload($customerId, $employeeId);
+        } catch (\Throwable $error) {
+            \App\Core\Logger::channel('app')->warning('QR badge could not be derived', [
+                'customer_id' => $customerId,
+                'employee_id' => $employeeId,
+                'message'     => $error->getMessage(),
+            ]);
+
+            return '';
+        }
     }
 
     /**

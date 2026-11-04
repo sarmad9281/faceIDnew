@@ -910,6 +910,12 @@ final class DeviceService
             'customer' => [
                 'id'          => $customerId,
                 'name'        => $customer === null ? '' : (string) $customer['name'],
+                // STAGE 20 - branding: the VIP brand name set by the OWNER of
+                // the platform (falls back to company / tenant name) and the
+                // logo. The kiosk draws the logo with object-fit: contain at
+                // its natural aspect ratio, so nothing is ever cropped.
+                'brand_name'  => $customer === null ? '' : \App\Models\Customer::brandName($customer),
+                'has_branding' => $customer === null ? false : \App\Models\Customer::hasBranding($customer),
                 'logo_url'    => $logoPath === '' ? null : \App\Support\Url::upload($logoPath),
                 'timezone'    => $customer === null ? 'Asia/Tehran' : (string) $customer['timezone'],
                 'date_system' => $customer === null ? 'jalali' : (string) $customer['date_system'],
@@ -929,6 +935,18 @@ final class DeviceService
                 'employees'  => \feature_enabled($customerId, 'employees'),
             ],
             'settings'           => DeviceSetting::allTyped($deviceId),
+            // STAGE 20 - the QR badge scanner. The camera keeps running for the
+            // face engine; every `scan_interval_ms` a single frame is decoded
+            // IN MEMORY (jsQR) and thrown away. Only the decoded STRING is ever
+            // sent, so a badge punch writes zero bytes to the server disk.
+            'qr'                 => [
+                'enabled'          => true,
+                'format'           => \App\Support\EmployeeQr::PREFIX,
+                'max_payload'      => \App\Support\EmployeeQr::MAX_LENGTH,
+                'scan_interval_ms' => 380,
+                'endpoint'         => '/api/v1/device/attendance/qr',
+                'label'            => 'بارکد پرسنلی',
+            ],
             'face'               => array_merge(
                 FaceDatasetService::clientConfig(),
                 (new FaceDatasetService())->versionInfoForDevice($device)

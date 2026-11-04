@@ -43,6 +43,15 @@ $is      = static function (string $prefix) use ($path): bool {
 
 $logoPath = trim((string) ($customer['logo_path'] ?? ''));
 $logoUrl  = $logoPath !== '' ? \App\Support\Url::upload(ltrim($logoPath, '/')) : '';
+
+/* STAGE 20 - the brand of the tenant: the VIP brand name when the owner set
+   one, otherwise the company / tenant name. The logo is rendered at its own
+   aspect ratio (never cropped): see .brand-logo in app.css. */
+$brandName = $customer !== null ? \App\Models\Customer::brandName($customer) : 'SARMAD Attendance';
+
+if ($brandName === '') {
+    $brandName = 'SARMAD Attendance';
+}
 $roleTitles = [
     'owner'      => 'مالک سامانه',
     'manager'    => 'مدیر کسب‌وکار',
@@ -139,11 +148,12 @@ $icon = static function (string $key) use ($icons): string {
         <div class="m-brand">
             <span class="m-brand-mark">
                 <?php if ($logoUrl !== ''): ?>
-                    <img src="<?= $e($logoUrl) ?>" alt="لوگو">
+                    <?php /* the ONLY logo rule that matters: contained, never cropped */ ?>
+                    <img class="brand-logo m-brand-logo" src="<?= $e($logoUrl) ?>" alt="لوگوی <?= $e($brandName) ?>">
                 <?php else: ?>SA<?php endif; ?>
             </span>
             <span class="m-brand-text">
-                <strong><?= $e($customer['name'] ?? 'SARMAD Attendance') ?></strong>
+                <strong><?= $e($brandName) ?></strong>
                 <small><?= $e($ownerMode ? 'پنل مالک سامانه' : 'سامانه حضور و غیاب') ?></small>
             </span>
         </div>
@@ -204,6 +214,21 @@ $icon = static function (string $key) use ($icons): string {
         </header>
 
         <main class="m-content">
+            <?php /* ------------------------------------------------------------
+                     STAGE 20 - the printed letterhead of every report: logo at
+                     its natural aspect ratio + the brand name of the customer.
+                     Screen: hidden.  @media print: the first thing on the page.
+                     ------------------------------------------------------------ */ ?>
+            <div class="m-print-brand">
+                <?php if ($logoUrl !== ''): ?>
+                    <img class="brand-logo" src="<?= $e($logoUrl) ?>" alt="لوگوی <?= $e($brandName) ?>">
+                <?php endif; ?>
+                <div class="m-print-brand-text">
+                    <strong><?= $e($brandName) ?></strong>
+                    <small>گزارش حضور و غیاب</small>
+                </div>
+            </div>
+
             <?php if ($impersonation !== null): ?>
                 <div class="alert alert-error">
                     <strong>شما در حالت دسترسی اضطراری هستید.</strong>
