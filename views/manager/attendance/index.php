@@ -136,7 +136,10 @@ $flagList = static function ($flagsRaw) use ($flags): array {
                         — مدت حضور: <span class="num"><?= $e(intdiv(max(0, (int) $row['inside_minutes']), 60)) ?> ساعت و <?= $e(max(0, (int) $row['inside_minutes']) % 60) ?> دقیقه</span>
                     </div>
                     <div class="row-actions">
-                        <?php if ((string) $row['source'] === 'device_offline'): ?>
+                        <?php if (in_array((string) $row['source'], ['device_qr', 'device_qr_offline'], true)): ?>
+                            <span class="badge badge-info" title="<?= $e($sourceLabel((string) $row['source'])) ?>">بارکد</span>
+                        <?php endif; ?>
+                        <?php if (in_array((string) $row['source'], ['device_offline', 'device_qr_offline'], true)): ?>
                             <span class="badge badge-warn">آفلاین</span>
                         <?php endif; ?>
                         <?php if ((int) $row['late_minutes'] > 0): ?>
@@ -199,6 +202,7 @@ $flagList = static function ($flagsRaw) use ($flags): array {
                     <option value="">همه</option>
                     <option value="online" <?= $filters['origin'] === 'online' ? 'selected' : '' ?>>دستگاه — آنلاین</option>
                     <option value="offline" <?= $filters['origin'] === 'offline' ? 'selected' : '' ?>>دستگاه — آفلاین (هم‌گام‌شده)</option>
+                    <option value="qr" <?= $filters['origin'] === 'qr' ? 'selected' : '' ?>>بارکد پرسنلی (QR)</option>
                     <option value="manual" <?= $filters['origin'] === 'manual' ? 'selected' : '' ?>>اصلاح دستی / ورود گروهی</option>
                 </select>
             </label>

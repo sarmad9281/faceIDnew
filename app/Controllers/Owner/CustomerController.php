@@ -331,6 +331,7 @@ final class CustomerController
         $validator = Validator::make($request->all(), [
             'name'          => 'required|string|max:150',
             'company_name'  => 'string|max:180',
+            'brand_name'    => 'string|max:120',
             'contact_email' => 'email|max:190',
             'contact_phone' => 'phone',
             'address'       => 'string|max:255',
@@ -343,6 +344,7 @@ final class CustomerController
         ], [
             'name'          => 'نام کسب‌وکار',
             'company_name'  => 'نام شرکت',
+            'brand_name'    => 'نام برند',
             'contact_email' => 'ایمیل تماس',
             'contact_phone' => 'تلفن تماس',
             'timezone'      => 'منطقه زمانی',
@@ -357,6 +359,7 @@ final class CustomerController
         $before = [
             'name'         => (string) $customer['name'],
             'company_name' => (string) ($customer['company_name'] ?? ''),
+            'brand_name'   => (string) ($customer['brand_name'] ?? ''),
             'contact_email'=> (string) ($customer['contact_email'] ?? ''),
             'contact_phone'=> (string) ($customer['contact_phone'] ?? ''),
             'address'      => (string) ($customer['address'] ?? ''),
@@ -377,6 +380,12 @@ final class CustomerController
             'max_devices'   => (int) ($data['max_devices'] ?? $customer['max_devices']),
         ]);
 
+        // STAGE 20 - the VIP brand name. Written through updateBranding(),
+        // which accepts exactly two columns, so nothing else can ride along.
+        $brandName = trim((string) ($data['brand_name'] ?? ''));
+
+        Customer::updateBranding($customerId, ['brand_name' => $brandName === '' ? null : $brandName]);
+
         if (!empty($data['notes'])) {
             \App\Models\Setting::put('customer.internal_note', (string) $data['notes'], 'customer', $customerId, 0, 0, (int) Session::userId());
         }
@@ -389,9 +398,18 @@ final class CustomerController
                 'company_name'  => (string) ($data['company_name'] ?? ''),
                 'contact_email' => (string) ($data['contact_email'] ?? ''),
                 'contact_phone' => (string) ($data['contact_phone'] ?? ''),
+                'brand_name'    => $brandName,
                 'status'        => (string) ($data['status'] ?? (string) $customer['status']),
             ],
         ], 'app', 'customer', $customerId, $customerId);
+
+        if ($brandName !== (string) ($customer['brand_name'] ?? '')) {
+            AuditLog::record('customer.brand.update', 'success', 'نام برند مشتری توسط مالک سامانه تغییر کرد.', [
+                'customer_id' => $customerId,
+                'before'      => (string) ($customer['brand_name'] ?? ''),
+                'after'       => $brandName,
+            ], 'app', 'customer', $customerId, $customerId);
+        }
 
         Session::flash('success', 'تغییرات مشتری ذخیره شد.');
 
@@ -506,7 +524,9 @@ final class CustomerController
 
         $previous = (string) ($customer['logo_path'] ?? '');
 
-        Customer::updateById($customerId, ['logo_path' => $stored['relative']]);
+        // Owner only (route middleware) and through the two-column writer: a
+        // manager login can never reach this code path.
+        Customer::updateBranding($customerId, ['logo_path' => $stored['relative']]);
 
         if ($previous !== '' && $previous !== $stored['relative']) {
             UploadService::delete($previous);
@@ -518,6 +538,44 @@ final class CustomerController
         ], 'app', 'customer', $customerId, $customerId);
 
         Session::flash('success', 'لوگو با موفقیت ذخیره شد.');
+
+        return Redirect::response('/owner/customers/' . (string) $customer['uuid'] . '/edit');
+    }
+
+    /**
+     * Remove the brand logo of a customer (owner only).
+     *
+     * Deletes the file from disk as well - a removed logo must not stay
+     * reachable under uploads/customers/{uuid}/branding/.
+     */
+    public function logoDelete(Request $request): Response
+    {
+        $customer = $this->customerOr404($request->param('uuid'));
+
+        if ($customer === null) {
+            Session::flash('error', 'مشتری یافت نشد.');
+
+            return Redirect::response('/owner/customers');
+        }
+
+        $customerId = (int) $customer['id'];
+        $previous   = trim((string) ($customer['logo_path'] ?? ''));
+
+        if ($previous === '') {
+            Session::flash('error', 'لوگویی برای حذف ثبت نشده است.');
+
+            return Redirect::response('/owner/customers/' . (string) $customer['uuid'] . '/edit');
+        }
+
+        Customer::updateBranding($customerId, ['logo_path' => null]);
+        UploadService::delete($previous);
+
+        AuditLog::record('customer.logo.delete', 'success', 'لوگوی مشتری حذف شد.', [
+            'customer_id' => $customerId,
+            'path'        => $previous,
+        ], 'app', 'customer', $customerId, $customerId);
+
+        Session::flash('success', 'لوگو حذف شد.');
 
         return Redirect::response('/owner/customers/' . (string) $customer['uuid'] . '/edit');
     }

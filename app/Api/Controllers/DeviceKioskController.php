@@ -26,7 +26,11 @@
  *                                status and the 3/3 face requirement,
  *   - GET  /employees/{id}/photo the enrolment snapshot / profile photo,
  *                                streamed only to an authenticated device of
- *                                the same customer.
+ *                                the same customer,
+ *   - POST /attendance/qr        a punch with the employee QR BADGE (stage 20).
+ *                                The badge string is the only credential and
+ *                                the only payload: no image is uploaded and
+ *                                nothing is written to the disk.
  *
  *   Recognition itself NEVER happens on the server: no camera image leaves the
  *   device. `/recognition` (server side, image based) therefore keeps
@@ -398,6 +402,63 @@ final class DeviceKioskController
         }
 
         return $this->respond($this->attendanceEngine()->recordExit($device, $request->payloadAll()));
+    }
+
+    /**
+     * POST /api/v1/device/attendance/qr   (stage 20)
+     *
+     * Body: { request_id, action: entry|exit, qr: "SARMADQ1.<c>.<e>.<hmac>" }
+     *
+     * A punch with the employee QR badge - the documented fallback for an
+     * employee whose face does not match (mask, glasses, scarf, bad light).
+     *
+     * What this endpoint does NOT do:
+     *   - it does not accept an image, a frame, a crop or a thumbnail. The
+     *     decoded string is the whole payload; the camera buffer never leaves
+     *     the browser and nothing is written to the disk (the byte count of
+     *     this request is the string length, nothing else),
+     *   - it does not accept a bare employee id: the badge carries an
+     *     HMAC signature and the server derives the employee from it,
+     *   - it does not require a recognition proof or a complete face dataset:
+     *     the badge IS the credential (see AttendanceEngine::recordQr).
+     *
+     * The response carries the same shape as /attendance/entry|exit, so the
+     * kiosk shows the same success screen and plays the same Persian voice.
+     */
+    public function attendanceQr(Request $request): Response
+    {
+        $device = $this->requireDevice();
+
+        if ($device === null) {
+            return ApiResponse::deviceError('DEVICE_UNAUTHORIZED', 'دستگاه احراز هویت نشده است.', [], 401);
+        }
+
+        if (!$this->devices->attendanceEnabled((int) $device['customer_id'])) {
+            return $this->featureDisabled($device);
+        }
+
+        $action = strtolower(trim((string) $request->payload('action', '')));
+
+        if (!in_array($action, ['entry', 'exit'], true)) {
+            return ApiResponse::deviceError('ATTENDANCE_ACTION_REQUIRED',
+                'نوع عملیات (entry یا exit) مشخص نشده است.', [], 422);
+        }
+
+        $qr = trim((string) $request->payload('qr', $request->payload('badge', '')));
+
+        if ($qr === '') {
+            DeviceLog::record('device.qr.error', 'warning', 'بارکد ارسال نشده است.', (int) $device['id'], (int) $device['customer_id'], [
+                'code' => 'QR_REQUIRED',
+            ]);
+
+            return ApiResponse::deviceError('QR_REQUIRED', 'بارکد پرسنلی ارسال نشده است.', [], 422);
+        }
+
+        if (strlen($qr) > \App\Support\EmployeeQr::MAX_LENGTH) {
+            return ApiResponse::deviceError('QR_INVALID', 'این بارکد معتبر نیست.', [], 422);
+        }
+
+        return $this->respond($this->attendanceEngine()->recordQr($device, $request->payloadAll(), $action));
     }
 
     /**

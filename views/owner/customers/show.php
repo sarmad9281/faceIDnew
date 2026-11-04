@@ -25,12 +25,17 @@ $enabledFeatures = array_values(array_filter($features, static fn (array $f): bo
 <div class="o-page-head">
     <div style="display:flex;align-items:center;gap:14px">
         <?php if ($logoUrl !== null): ?>
-            <img src="<?= $e($logoUrl) ?>" alt="لوگو" style="width:56px;height:56px;border-radius:14px;object-fit:cover;border:1px solid var(--o-line)">
+            <?php /* never cropped: the logo keeps its natural aspect ratio */ ?>
+            <img class="brand-logo" src="<?= $e($logoUrl) ?>" alt="لوگو" style="max-height:56px;max-width:160px">
         <?php else: ?>
             <span class="o-brand-mark" style="width:56px;height:56px;border-radius:16px"><?= $e(mb_substr((string) $customer['name'], 0, 2, 'UTF-8')) ?></span>
         <?php endif; ?>
         <div>
             <h1><?= $e($customer['name']) ?></h1>
+            <?php $brandName = \App\Models\Customer::brandName($customer); ?>
+            <?php if (trim((string) ($customer['brand_name'] ?? '')) !== ''): ?>
+                <p class="o-small">نام برند: <strong><?= $e($brandName) ?></strong></p>
+            <?php endif; ?>
             <p>
                 <span class="o-ltr"><?= $e($customer['slug']) ?></span> —
                 <span class="o-badge <?= $customer['status'] === 'active' ? 'o-badge-ok' : 'o-badge-bad' ?>"><?= $customer['status'] === 'active' ? 'فعال' : 'غیرفعال' ?></span>

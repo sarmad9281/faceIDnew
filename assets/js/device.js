@@ -810,10 +810,27 @@
         state.faceBusy = false;
         state.faceStable = 0;
 
+        /* STAGE 20 - the badge reader starts with every camera session. */
+        state.qrBusy = false;
+        state.qrLastScan = 0;
+        state.qrUnknownAt = 0;
+        state.qrDecoderWarned = false;
+
         /* Model + gallery first, then the live loop: the kiosk must never show
            "recognising" while it has nothing to recognise with. */
         ensureEngine().then(function (report) {
             if (!report.ok) {
+                /* STAGE 20 - the badge does not need the face model. When the
+                   model failed to load but the badge reader is available, the
+                   camera loop keeps running: the employee can still clock in
+                   with his badge instead of being locked out. */
+                if (qrConfig() && window.jsQR) {
+                    setCameraState('guidance', 'موتور تشخیص چهره آماده نیست؛ کارت بارکد پرسنلی را مقابل دوربین بگیرید.');
+                    startFaceLoop();
+
+                    return;
+                }
+
                 showError('engine', 'موتور تشخیص چهره آماده نیست', report.message || 'بارگذاری مدل تشخیص چهره ناموفق بود.', 6000);
                 closeCamera();
 
@@ -821,7 +838,16 @@
             }
 
             return loadCachedGallery().then(function () {
-                return state.online ? syncFaceData(false) : false;
+                if (!state.online) {
+                    return false;
+                }
+
+                /* A gallery downloaded by a pre-stage-20 build has no `qr`
+                   block at all. Refresh ONCE so the badge reader works without
+                   waiting for the next face change. */
+                var stale = state.faceGallery && !state.faceGallery.qr;
+
+                return syncFaceData(stale === true);
             }).then(function () {
                 if (state.status === 'active' && root.getAttribute('data-state') === 'camera:' + action) {
                     startFaceLoop();
@@ -1150,7 +1176,12 @@
         var customer = config.customer || {};
         var branch = config.branch || null;
 
-        text(el.business, customer.name || 'SARMAD Attendance');
+        /* STAGE 20 - branding: the VIP brand name the owner set wins over the
+           tenant name, and the logo is rendered with CSS object-fit:contain
+           (see img.k-logo) so it is never cropped or stretched. */
+        var brandName = customer.brand_name || customer.name || 'SARMAD Attendance';
+
+        text(el.business, brandName);
         text(el.deviceName, (config.device && config.device.name) || '');
 
         if (el.logo && customer.logo_url) {
@@ -1163,7 +1194,7 @@
         } else {
             if (el.logoFallback) {
                 el.logoFallback.hidden = false;
-                el.logoFallback.textContent = initials(customer.name || 'SA');
+                el.logoFallback.textContent = initials(brandName || 'SA');
             }
 
             if (el.logo) {
@@ -1298,7 +1329,7 @@
         var branch = state.config && state.config.branch ? state.config.branch.name : '—';
 
         text(el.infoDevice, (device.name || '—') + (device.device_uid ? ' (' + device.device_uid + ')' : ''));
-        text(el.infoCustomer, customer.name || '—');
+        text(el.infoCustomer, customer.brand_name || customer.name || '—');
         text(el.infoBranch, branch || '—');
         text(el.infoVersion, SETUP.version);
         text(el.infoStatus, device.status || '—');
@@ -1543,6 +1574,341 @@
         api('/error', { body: { code: code, message: message.slice(0, 200) } });
     }
 
+    /* =================================================================
+     * STAGE 20 - QR badge reader (fallback when the face does not match)
+     * ===============================================================*
+     *
+     * The camera already runs for the face engine; the SAME frames are now
+     * also offered to a QR decoder every few hundred milliseconds.
+     *
+     * ZERO BYTES ON THE SERVER DISK
+     * -----------------------------
+     * A frame is drawn into an in-memory <canvas> (never appended to the
+     * document), read as an ImageData, decoded, and then the canvas is
+     * cleared in the same tick. Nothing calls toDataURL / toBlob, nothing is
+     * written to IndexedDB or the Cache, and the only thing that ever leaves
+     * the browser is the decoded ~47 character string. There is no upload
+     * path for an image on this device at all.
+     * ===============================================================*/
+
+    function qrModule() {
+        return window.SarmadDeviceQr || null;
+    }
+
+    function qrConfig() {
+        var qr = state.config && state.config.qr ? state.config.qr : null;
+
+        return qr && qr.enabled !== false ? qr : null;
+    }
+
+    /**
+     * The badges of this device's customer (digest only - see
+     * FaceDatasetService::qrForDevice).
+     *
+     * Deliberately NOT read through currentGallery(): that helper answers
+     * "is there a face gallery to match against" and returns null when the
+     * customer has no complete 3/3 enrolment - which is exactly the customer
+     * that needs the badge. The badge list is looked up on its own.
+     */
+    function qrBadges() {
+        var sources = [state.faceGallery];
+        var store = faceStore();
+
+        if (store) {
+            sources.push(store.cached(deviceIdFromCredential()));
+        }
+
+        for (var i = 0; i < sources.length; i += 1) {
+            var gallery = sources[i];
+            var qr = gallery && gallery.qr ? gallery.qr : null;
+
+            if (qr && qr.enabled !== false && qr.employees && qr.employees.length) {
+                return qr.employees;
+            }
+        }
+
+        return [];
+    }
+
+    function qrScanDue() {
+        var qr = qrConfig();
+
+        if (!qr || !qrModule() || !window.jsQR) {
+            return false;
+        }
+
+        var interval = parseInt(qr.scan_interval_ms, 10) || 400;
+        var now = Date.now();
+
+        if (state.qrBusy || now - (state.qrLastScan || 0) < interval) {
+            return false;
+        }
+
+        state.qrLastScan = now;
+
+        return true;
+    }
+
+    /**
+     * Decode ONE frame. The canvas lives only in memory and is cleared
+     * immediately; the frame is never stored, never uploaded, never reused.
+     */
+    function scanQrBadge() {
+        var QR = qrModule();
+
+        if (!QR || !el.cameraVideo) {
+            return null;
+        }
+
+        if (el.cameraVideo.readyState < 2 || !el.cameraVideo.videoWidth) {
+            return null;
+        }
+
+        var width = 480;
+        var ratio = el.cameraVideo.videoHeight / el.cameraVideo.videoWidth;
+        var height = Math.max(120, Math.round(width * (ratio || 0.75)));
+
+        try {
+            if (!state.qrCanvas) {
+                state.qrCanvas = document.createElement('canvas');
+            }
+
+            var canvas = state.qrCanvas;
+            canvas.width = width;
+            canvas.height = height;
+
+            var ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            if (!ctx) {
+                return null;
+            }
+
+            ctx.drawImage(el.cameraVideo, 0, 0, width, height);
+
+            var frame = ctx.getImageData(0, 0, width, height);
+
+            // The pixels are dropped as soon as the decoder returns: no copy
+            // survives this function.
+            ctx.clearRect(0, 0, width, height);
+
+            var decoded = QR.decodeFrame(frame, { inversionAttempts: 'dontInvert' });
+
+            frame = null;
+
+            if (!decoded || !QR.looksLikeBadge(decoded)) {
+                return null;
+            }
+
+            return QR.normalise(decoded);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function handleQrBadge(raw) {
+        var QR = qrModule();
+
+        if (!QR || state.faceBusy) {
+            return;
+        }
+
+        var badges = qrBadges();
+
+        if (!badges.length) {
+            /* The device has no badge list yet (first run before the dataset
+               sync): say so once instead of silently ignoring the badge. */
+            if (!state.qrDecoderWarned) {
+                state.qrDecoderWarned = true;
+                setCameraState('guidance', 'بارکد خوانده شد اما فهرست بارکدهای این مجموعه هنوز دریافت نشده است.');
+            }
+
+            return;
+        }
+
+        var hit = QR.match(raw, badges);
+
+        if (!hit) {
+            /* Unknown / foreign / expired badge: a short hint, no error screen,
+               and no server round trip for a string that is not ours. */
+            var now = Date.now();
+
+            if (now - (state.qrUnknownAt || 0) > 4000) {
+                state.qrUnknownAt = now;
+                setCameraState('guidance', 'این بارکد در این مجموعه ثبت نشده است.');
+            }
+
+            return;
+        }
+
+        state.faceBusy = true;
+        stopFaceLoop();
+        setCameraState('recognizing', 'بارکد شناسایی شد…');
+        submitQrPunch(state.action, raw, hit);
+    }
+
+    /**
+     * Send the punch. Online: the badge string itself (the server verifies its
+     * HMAC and derives the employee). Offline: the digest of the badge goes to
+     * the same queue a face punch uses, and the server re-derives it on sync.
+     */
+    function submitQrPunch(action, raw, hit) {
+        var employee = hit.employee || {};
+        var requestIdValue = requestId();
+        var QR = qrModule();
+
+        function offline(reason) {
+            var stored = queue.push({
+                local_event_id: localEventId(),
+                device_id: deviceIdFromCredential(),
+                event_type: action,
+                employee_id: employee.employee_id,
+                local_created_at: nowIso(),
+                request_id: requestIdValue,
+                credential: 'qr',
+                qr_digest: hit.digest,
+                recognition: {
+                    outcome: 'QR_MATCHED',
+                    model_version: (state.faceConfig && state.faceConfig.model_version) || ''
+                }
+            });
+
+            setOnline(false);
+
+            if (stored) {
+                text(el.queueCount, 'در صف ارسال: ' + queue.count());
+            }
+
+            var operation = action === 'entry' ? 'ورود' : 'خروج';
+
+            closeCamera();
+            renderQueue();
+
+            if (!stored) {
+                showError('storage', 'تردد ذخیره نشد', 'حافظه محلی در دسترس نیست یا صف پر است. لطفاً با مسئول مجموعه تماس بگیرید.', 7000);
+
+                return;
+            }
+
+            var now = new Date();
+
+            showSuccess({
+                title: operation + ' در صف ارسال ثبت شد',
+                message: 'ارتباط با سرور برقرار نیست؛ پس از اتصال مجدد، تردد به‌صورت خودکار هم‌گام می‌شود.',
+                employee: {
+                    full_name: employee.full_name || '',
+                    employee_code: employee.employee_code || '',
+                    photo_url: ''
+                },
+                facts: [
+                    { label: 'نوع عملیات', value: operation },
+                    { label: 'ساعت', value: pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()) },
+                    { label: 'روش ثبت', value: 'بارکد پرسنلی' },
+                    { label: 'وضعیت', value: 'در صف ارسال' }
+                ]
+            });
+        }
+
+        if (!state.online) {
+            offline('offline');
+
+            return;
+        }
+
+        api('/attendance/qr', {
+            body: {
+                request_id: requestIdValue,
+                action: action,
+                qr: raw
+            }
+        }).then(function (payload) {
+            if (payload.code === 'NETWORK_ERROR') {
+                offline('network');
+
+                return;
+            }
+
+            var operation = action === 'entry' ? 'ورود' : 'خروج';
+            var now = new Date();
+            var time = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+
+            closeCamera();
+
+            if (payload.success) {
+                var server = (payload.data && payload.data.employee) || {};
+
+                /* state.action already points at this action, so showSuccess()
+                   plays the SAME Persian voice as a face punch
+                   («صبح بخیر، ورود شما ثبت شد» / «خسته نباشید، خروج شما ثبت شد»). */
+                state.action = action;
+
+                showSuccess({
+                    title: operation + ' با موفقیت ثبت شد',
+                    message: payload.message || '',
+                    employee: {
+                        full_name: server.full_name || employee.full_name || '',
+                        employee_code: server.code || employee.employee_code || '',
+                        position: employee.position || '',
+                        photo_url: server.has_photo ? ('/api/v1/device/employees/' + (server.id || employee.employee_id) + '/photo') : ''
+                    },
+                    facts: [
+                        { label: 'نوع عملیات', value: operation },
+                        { label: 'ساعت', value: time },
+                        { label: 'روش ثبت', value: 'بارکد پرسنلی' },
+                        { label: 'وضعیت', value: 'ثبت شد' }
+                    ]
+                });
+
+                return;
+            }
+
+            var code = String(payload.code || '');
+
+            if (isRevokedResponse(payload)) {
+                revokeCredentials(code);
+
+                return;
+            }
+
+            if (code === 'QR_INVALID' || code === 'QR_REQUIRED') {
+                showError('qr', 'بارکد معتبر نیست', payload.message || 'این بارکد معتبر نیست یا به این مجموعه تعلق ندارد.', 6000);
+
+                return;
+            }
+
+            if (code === 'EMPLOYEE_INACTIVE') {
+                showError('inactive', 'کارمند غیرفعال', payload.message || 'این کارمند غیرفعال است.', 7000);
+
+                return;
+            }
+
+            if (code === 'ENTRY_ALREADY_OPEN' || code === 'DUPLICATE_REQUEST') {
+                showError('already_open', 'ورود قبلاً ثبت شده است', payload.message || 'ورود شما قبلاً ثبت شده است.', 6000);
+
+                return;
+            }
+
+            if (code === 'NO_OPEN_ENTRY') {
+                showError('no_open', 'ورود فعالی یافت نشد', payload.message || 'برای شما ورود فعالی ثبت نشده است.', 6000);
+
+                return;
+            }
+
+            if (code === 'INVALID_BRANCH' || code === 'TENANT_MISMATCH') {
+                showError('branch', 'شعبه نامعتبر', payload.message || 'این کارمند به شعبه دیگری تعلق دارد.', 7000);
+
+                return;
+            }
+
+            if (code === 'FEATURE_DISABLED') {
+                showError('feature', 'سرویس حضور و غیاب غیرفعال است', payload.message || 'این سرویس برای مجموعه شما فعال نیست.', 6000);
+
+                return;
+            }
+
+            showError('qr', 'ثبت تردد با بارکد انجام نشد', payload.message || 'ثبت تردد انجام نشد. لطفاً دوباره تلاش کنید.', 6000);
+        });
+    }
+
     /**
      * The live detection loop.
      *
@@ -1577,6 +1943,20 @@
 
             if (el.cameraVideo.readyState < 2 || !el.cameraVideo.videoWidth) {
                 return;
+            }
+
+            /* STAGE 20 - the QR badge is tried FIRST on every tick (cheap, in
+               memory). A decoded badge wins over the face detection of the
+               same frame: the person is holding the code up on purpose. */
+            if (qrScanDue()) {
+                var badge = scanQrBadge();
+
+                if (badge) {
+                    state.faceDetecting = false;
+                    handleQrBadge(badge);
+
+                    return;
+                }
             }
 
             var size = state.faceConfig && state.faceConfig.detector_input_size;

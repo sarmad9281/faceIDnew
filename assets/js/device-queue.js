@@ -66,6 +66,12 @@
         var localId = clean(event.local_event_id, 64);
         var recognition = event.recognition || {};
 
+        /* STAGE 20 - a badge punch has no face distance: it carries the
+           SHA-256 digest of the scanned badge instead. Only the digest is
+           queued (never the badge, never a frame), so the queue can not be
+           used to print a badge and holds no image whatsoever. */
+        var credential = String(event.credential || '').toLowerCase() === 'qr' ? 'qr' : 'face';
+
         return {
             queue_id: localId,
             local_event_id: localId,
@@ -74,8 +80,10 @@
             employee_id: parseInt(event.employee_id, 10) || 0,
             local_created_at: clean(event.local_created_at, 40),
             request_id: clean(event.request_id, 64),
+            credential: credential,
+            qr_digest: credential === 'qr' ? clean(event.qr_digest, 64) : '',
             recognition: {
-                outcome: clean(recognition.outcome, 40) || 'FACE_MATCHED',
+                outcome: clean(recognition.outcome, 40) || (credential === 'qr' ? 'QR_MATCHED' : 'FACE_MATCHED'),
                 distance: numOrNull(recognition.distance),
                 confidence: numOrNull(recognition.confidence),
                 sample_index: parseInt(recognition.sample_index, 10) || null,
@@ -106,6 +114,13 @@
                 request_id: row.request_id,
                 model_version: (row.recognition && row.recognition.model_version) || ''
             };
+
+            // A face item keeps the exact pre-stage-20 contract: `credential`
+            // and `qr_digest` are only sent for a badge punch.
+            if (String(row.credential || '').toLowerCase() === 'qr') {
+                entry.credential = 'qr';
+                entry.qr_digest = clean(row.qr_digest, 64);
+            }
 
             if (row.recognition && row.recognition.distance !== null && row.recognition.distance !== undefined) {
                 entry.distance = row.recognition.distance;

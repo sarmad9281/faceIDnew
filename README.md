@@ -119,7 +119,14 @@ node tests/device_queue_test.js http://localhost:8080
 
 # تست جابجایی ساب‌دامین و تغییر پوشه (30 تست)
 bash tests/move_folder_check.sh http://localhost:8080 http://localhost:8080
+
+# تست کارت بارکد پرسنلی و برند اختصاصی (تسک ۲۰)
+php tests/stage20_tests.php            # بارکد + برند + آپلود صفر بایتی (دیتابیس واقعی)
+node tests/device_qr_test.js           # ماژول بارکد کیوسک (بدون نیاز به سرور)
+node tests/service_worker_offline_test.js
 ```
+
+جزئیات تسک ۲۰ (قالب بارکد، برند فقط‌مالک، مسیر آفلاین) در `docs/STAGE20.md` آمده است.
 
 ---
 

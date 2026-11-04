@@ -175,9 +175,12 @@ final class ReportService
             $origin = (string) $filters['origin'];
 
             if ($origin === 'offline') {
-                $where[] = "r.`source` = 'device_offline'";
+                $where[] = "r.`source` IN ('device_offline','device_qr_offline')";
             } elseif ($origin === 'online') {
-                $where[] = "r.`source` = 'device'";
+                $where[] = "r.`source` IN ('device','device_qr')";
+            } elseif ($origin === 'qr') {
+                // STAGE 20 - the same filter in the manager list and the reports
+                $where[] = "r.`source` IN ('device_qr','device_qr_offline')";
             } elseif ($origin === 'manual') {
                 $where[] = "r.`source` = 'manual'";
             }

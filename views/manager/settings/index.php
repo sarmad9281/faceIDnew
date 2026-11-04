@@ -15,13 +15,14 @@
 use App\Services\SubscriptionService;
 use App\Support\Url;
 
-$logo = trim((string) ($customer['logo_path'] ?? ''));
+$logo     = trim((string) ($customer['logo_path'] ?? ''));
+$brandName = \App\Models\Customer::brandName(is_array($customer) ? $customer : []);
 ?>
 <div class="page-head">
     <div>
         <h1>تنظیمات کسب‌وکار</h1>
         <p class="muted small">
-            نام، لوگو، اطلاعات تماس و آدرس این کسب‌وکار. تنظیمات سطح مالک (اشتراک، امکانات، ریست دستگاه) از این پنل قابل تغییر نیست.
+            نام، اطلاعات تماس و آدرس این کسب‌وکار. برند و لوگو (سرویس ویژه) و تنظیمات سطح مالک (اشتراک، امکانات، ریست دستگاه) از این پنل قابل تغییر نیست.
         </p>
     </div>
 </div>
@@ -30,7 +31,7 @@ $logo = trim((string) ($customer['logo_path'] ?? ''));
     <section class="card">
         <div class="card-head"><h2>اطلاعات کسب‌وکار</h2></div>
 
-        <form method="post" action="<?= $e($url('/manager/settings/update')) ?>" enctype="multipart/form-data">
+        <form method="post" action="<?= $e($url('/manager/settings/update')) ?>">
             <?= $csrf() ?>
             <div class="grid-2">
                 <label class="field">
@@ -61,7 +62,7 @@ $logo = trim((string) ($customer['logo_path'] ?? ''));
                 <textarea name="description" maxlength="500"><?= $e($settings['description'] ?? '') ?></textarea>
             </label>
 
-            <div class="grid-3">
+            <div class="grid-2">
                 <label class="field">
                     <span>ساعت شروع پیش‌فرض کار</span>
                     <input type="time" name="work_start_hint" class="ltr" value="<?= $e($settings['work_start_hint'] ?? '08:00') ?>">
@@ -70,13 +71,6 @@ $logo = trim((string) ($customer['logo_path'] ?? ''));
                     <span>ساعت پایان پیش‌فرض کار</span>
                     <input type="time" name="work_end_hint" class="ltr" value="<?= $e($settings['work_end_hint'] ?? '17:00') ?>">
                 </label>
-                <label class="field">
-                    <span>لوگو</span>
-                    <input type="file" name="logo" accept="image/png,image/jpeg,image/webp">
-                    <?php if ($logo !== ''): ?>
-                        <span class="field-hint">لوگوی فعلی ثبت شده است؛ انتخاب فایل جدید آن را جایگزین می‌کند.</span>
-                    <?php endif; ?>
-                </label>
             </div>
 
             <button type="submit" class="btn btn-primary">ذخیره اطلاعات</button>
@@ -84,13 +78,27 @@ $logo = trim((string) ($customer['logo_path'] ?? ''));
     </section>
 
     <div>
+        <?php /* STAGE 20 - branding is a VIP, OWNER ONLY setting. The manager
+                 sees exactly what the kiosk and the reports show (the logo at
+                 its natural aspect ratio + the brand name) and a note that it
+                 is not editable here - no file input, no brand field. */ ?>
         <section class="card">
-            <div class="card-head"><h2>لوگو</h2></div>
-            <?php if ($logo !== ''): ?>
-                <img src="<?= $e(Url::upload($logo)) ?>" alt="لوگو" style="max-width:180px;border-radius:14px;border:1px solid var(--m-line)">
-            <?php else: ?>
-                <p class="muted small">لوگویی ثبت نشده است.</p>
-            <?php endif; ?>
+            <div class="card-head">
+                <h2>برند و لوگو</h2>
+                <span class="badge badge-muted">فقط توسط مالک سامانه</span>
+            </div>
+            <div class="brand-preview">
+                <?php if ($logo !== ''): ?>
+                    <img class="brand-logo" src="<?= $e(Url::upload($logo)) ?>" alt="لوگوی <?= $e($brandName) ?>">
+                <?php else: ?>
+                    <span class="brand-logo is-empty">بدون لوگو</span>
+                <?php endif; ?>
+                <strong class="brand-name"><?= $e($brandName) ?></strong>
+            </div>
+            <p class="muted small">
+                لوگو و نام برند این مجموعه بخشی از سرویس ویژه است و فقط از پنل مالک سامانه
+                (<span class="ltr">/owner/customers</span>) تغییر می‌کند. برای درخواست تغییر با پشتیبانی تماس بگیرید.
+            </p>
         </section>
 
         <section class="card">

@@ -77,6 +77,16 @@ $error = static function (string $key) use ($errors): string {
                     <?php if ($error('company_name')): ?><small class="o-error-text"><?= $e($error('company_name')) ?></small><?php endif; ?>
                 </label>
 
+                <?php /* STAGE 20 - the VIP brand name. Owner only: the manager
+                         panel has no field for it and refuses the POST. */ ?>
+                <label class="o-field <?= $error('brand_name') !== '' ? 'is-error' : '' ?>">
+                    <span>نام برند (سرویس ویژه)</span>
+                    <input type="text" name="brand_name" value="<?= $e($value('brand_name')) ?>" maxlength="120"
+                           placeholder="همان نامی که روی دستگاه و سربرگ گزارش‌ها چاپ می‌شود">
+                    <?php if ($error('brand_name')): ?><small class="o-error-text"><?= $e($error('brand_name')) ?></small><?php endif; ?>
+                    <small>اگر خالی بماند، نام شرکت و سپس نام کسب‌وکار نمایش داده می‌شود.</small>
+                </label>
+
                 <label class="o-field <?= $error('contact_phone') !== '' ? 'is-error' : '' ?>">
                     <span>موبایل</span>
                     <input type="text" name="contact_phone" value="<?= $e($value('contact_phone')) ?>" maxlength="25" placeholder="09xxxxxxxxx">
@@ -177,15 +187,31 @@ $error = static function (string $key) use ($errors): string {
     <div>
         <?php if ($isEdit): ?>
             <section class="o-card">
-                <div class="o-card-head"><h2>لوگوی مشتری<span class="o-sub">JPG / PNG / WEBP — حداکثر ۵ مگابایت</span></h2></div>
+                <div class="o-card-head">
+                    <h2>لوگوی برند<span class="o-sub">PNG / JPG / WEBP — حداکثر ۵ مگابایت</span></h2>
+                    <span class="o-badge">فقط مالک سامانه</span>
+                </div>
 
+                <?php /* The logo is shown with object-fit: contain and a
+                         max-height: a wide wordmark, a square icon and a tall
+                         emblem are all visible at their own aspect ratio and
+                         are never cropped or stretched - on this page, on the
+                         kiosk, in the panel header and in the printed report
+                         letterhead. Transparent PNG/WebP keeps its
+                         transparency (no tile behind it). */ ?>
                 <?php if ($logoUrl !== null): ?>
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-                        <img src="<?= $e($logoUrl) ?>" alt="لوگو" style="max-width:120px;max-height:80px;border-radius:10px;border:1px solid var(--o-line)">
-                        <span class="o-small o-muted"><?= $e((string) $customer['logo_path']) ?></span>
+                    <div class="brand-preview o-logo-preview">
+                        <img class="brand-logo" src="<?= $e($logoUrl) ?>" alt="لوگوی برند">
+                        <span class="o-small o-muted ltr"><?= $e((string) $customer['logo_path']) ?></span>
                     </div>
+
+                    <form method="post" action="<?= $e($url('/owner/customers/' . $customer['uuid'] . '/logo/delete')) ?>"
+                          data-confirm="لوگوی این مشتری حذف شود؟">
+                        <?= $csrf() ?>
+                        <button type="submit" class="o-btn o-btn-sm o-btn-danger">حذف لوگو</button>
+                    </form>
                 <?php else: ?>
-                    <div class="o-empty"><strong>لوگویی ثبت نشده است</strong>فرمت‌های مجاز: JPG، PNG، WEBP</div>
+                    <div class="o-empty"><strong>لوگویی ثبت نشده است</strong>فرمت‌های مجاز: PNG، JPG، WEBP (با پس‌زمینه شفاف)</div>
                 <?php endif; ?>
 
                 <form method="post" action="<?= $e($url('/owner/customers/' . $customer['uuid'] . '/logo')) ?>" enctype="multipart/form-data">

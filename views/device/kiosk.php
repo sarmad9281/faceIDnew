@@ -152,7 +152,10 @@
     <div class="k-overlay-head">
         <div>
             <h2 class="k-overlay-title" id="k-camera-title">ثبت ورود</h2>
-            <p class="k-overlay-sub">برای ثبت، چهره شما باید داخل کادر و بدون کلاه یا ماسک باشد.</p>
+            <p class="k-overlay-sub">
+                برای ثبت، چهره شما باید داخل کادر و بدون کلاه یا ماسک باشد.
+                اگر چهره شما شناسایی نشد، کارت بارکد پرسنلی را مقابل دوربین بگیرید.
+            </p>
         </div>
         <button type="button" class="k-btn" id="k-camera-cancel">انصراف</button>
     </div>
@@ -182,6 +185,14 @@
         </div>
 
         <p class="k-camera-hint" id="k-camera-hint">دوربین در حال آماده‌سازی است…</p>
+
+        <?php /* STAGE 20 - the badge fallback. The badge is decoded in memory;
+                 the picture of the badge is never saved on this device or on
+                 the server. */ ?>
+        <p class="k-qr-hint" id="k-qr-hint">
+            <span class="k-qr-badge" aria-hidden="true">QR</span>
+            <span>شناسایی چهره ممکن نشد؟ بارکد پرسنلی را داخل کادر بگیرید.</span>
+        </p>
     </div>
 
     <div class="k-overlay-head">

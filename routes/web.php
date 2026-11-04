@@ -111,6 +111,8 @@ return static function (Router $router): void {
         ['auth', 'owner', 'csrf'], 'owner.customers.status');
     $router->post('/owner/customers/{uuid}/logo', [OwnerCustomerController::class, 'logo'],
         ['auth', 'owner', 'csrf'], 'owner.customers.logo');
+    $router->post('/owner/customers/{uuid}/logo/delete', [OwnerCustomerController::class, 'logoDelete'],
+        ['auth', 'owner', 'csrf'], 'owner.customers.logo.delete');
 
     // Features (both URL shapes are supported: feature-first and the
     // customer-first links used by the customer/manager screens).

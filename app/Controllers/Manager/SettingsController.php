@@ -2,10 +2,12 @@
 /**
  * SARMAD Attendance - manager panel: settings of his OWN customer.
  *
- * Editable here: business name, logo, mobile, email, address, description and
- * the customer level work hints. NOT editable here (owner level, and not
+ * Editable here: business name, mobile, email, address, description and the
+ * customer level work hints. NOT editable here (owner level, and not
  * reachable through this controller at all): subscription, feature flags,
- * owner settings, device reset, customer status.
+ * owner settings, device reset, customer status - and, since stage 20, the
+ * BRANDING (logo + brand name). Branding is a VIP feature the owner of the
+ * platform sets per customer: a manager may read it, never change it.
  */
 
 declare(strict_types=1);
@@ -23,7 +25,6 @@ use App\Models\Customer;
 use App\Models\CustomerSetting;
 use App\Models\FeatureFlag;
 use App\Services\FeatureService;
-use App\Services\UploadService;
 use App\Support\Capability;
 use App\Support\Input;
 
@@ -78,39 +79,36 @@ final class SettingsController
             return Redirect::response('/manager/settings');
         }
 
-        $before   = Customer::find($customerId) ?? [];
-        $logoPath = (string) ($before['logo_path'] ?? '');
+        /* ---- STAGE 20: branding is OWNER ONLY ----------------------------
+           The logo and the brand name of a customer are a VIP feature the
+           platform owner sells; a manager must not be able to change them -
+           not through this form, and not by posting the fields directly.
+           Instead of silently ignoring a smuggled `logo` file we refuse the
+           whole request and leave an audit trail, so an attempt is visible.
+        ------------------------------------------------------------------ */
+        if ($request->hasFile('logo') || trim((string) $request->input('brand_name', '')) !== ''
+            || trim((string) $request->input('logo_path', '')) !== '') {
+            AuditLog::record('customer.brand.denied', 'denied',
+                'تلاش مدیر مشتری برای تغییر برند/لوگو رد شد.', [
+                    'customer_id'  => $customerId,
+                    'has_file'     => $request->hasFile('logo'),
+                    'brand_name'   => trim((string) $request->input('brand_name', '')),
+                ], 'security', 'customer', $customerId, $customerId);
 
-        if ($request->hasFile('logo')) {
-            $stored = UploadService::storeLogo(is_array($request->file('logo')) ? $request->file('logo') : [], (string) ($before['uuid'] ?? ''));
+            Session::flash('error', 'برند و لوگوی این مجموعه فقط توسط مالک سامانه قابل تغییر است.');
 
-            if (!$stored['ok']) {
-                Session::flash('error', $stored['message']);
-
-                return Redirect::response('/manager/settings');
-            }
-
-            if ($logoPath !== '') {
-                UploadService::delete(ltrim($logoPath, '/'));
-            }
-
-            $logoPath = $stored['relative'];
-
-            AuditLog::record('customer.logo', 'success', 'لوگوی کسب‌وکار به‌روزرسانی شد.', [
-                'file' => $logoPath,
-            ], 'app', 'customer', $customerId, $customerId);
+            return Redirect::response('/manager/settings');
         }
 
-        // updateProfile() only accepts the business identity columns, so a
+        // updateProfile() only accepts the contact identity columns, so a
         // subscription / status / feature field smuggled into the POST would
-        // be dropped silently.
+        // be dropped silently - and `logo_path` is not in that list at all.
         Customer::updateProfile($customerId, [
             'name'          => $name,
             'company_name'  => Input::text($request->input('company_name', ''), 150),
             'contact_email' => $email !== '' ? $email : null,
             'contact_phone' => $mobile !== '' ? $mobile : null,
             'address'       => Input::multiline($request->input('address', ''), 255),
-            'logo_path'     => $logoPath,
         ]);
 
         $changed = CustomerSetting::putMany($customerId, [
@@ -124,7 +122,7 @@ final class SettingsController
 
         AuditLog::record('customer.profile.update', 'success', 'اطلاعات کسب‌وکار توسط مدیر مشتری ویرایش شد.', [
             'changed_keys' => $changed,
-            'logo'         => $logoPath,
+            // branding is not part of this form any more (owner only)
         ], 'app', 'customer', $customerId, $customerId);
 
         Session::flash('success', 'اطلاعات کسب‌وکار ذخیره شد.');
