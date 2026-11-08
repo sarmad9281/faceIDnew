@@ -207,9 +207,29 @@ final class Url
         return self::asset($path, self::CSS_VERSION);
     }
 
+    /**
+     * Absolute URL of an internal path (scheme + host + install folder + path).
+     *
+     * STAGE 22 - fixed. base() ALREADY carries the installation folder, so
+     * routing the path through to() (which prepends the same folder) doubled
+     * it on a sub-directory install: https://host/attendance/attendance/login.
+     * The landing page publishes this URL as its <link rel="canonical"> and in
+     * og:image, so a doubled path would have been published to Google.
+     *
+     *   root install      full('/')       -> https://host/
+     *   /attendance       full('/')       -> https://host/attendance/
+     *   /attendance       full('/login')  -> https://host/attendance/login
+     */
     public static function full(string $path = ''): string
     {
-        return rtrim(self::base(), '/') . self::to($path);
+        if (preg_match('#^https?://#i', $path)) {
+            return $path;
+        }
+
+        $base = rtrim(self::base(), '/');
+        $path = '/' . ltrim($path, '/');
+
+        return $base . ($path === '/' ? '/' : rtrim($path, '/'));
     }
 
     /**

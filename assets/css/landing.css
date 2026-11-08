@@ -1154,6 +1154,10 @@ textarea {
 }
 
 .footer-links a {
+    /* STAGE 22 - tap target: Lighthouse (SEO) wants at least a 48x48 box. */
+    display: inline-flex;
+    align-items: center;
+    min-height: 48px;
     color: var(--landing-muted);
     font-weight: 800;
     text-decoration: none;
@@ -1254,9 +1258,10 @@ textarea {
     }
 
     .nav-actions .btn {
-        min-height: 42px;
+        /* STAGE 22 - 48px minimum tap target (was 42px). */
+        min-height: 48px;
         padding: 8px 11px;
-        font-size: 0.78rem;
+        font-size: 0.8rem;
     }
 
     .hero {
@@ -1366,7 +1371,8 @@ textarea {
 
     .nav-actions .btn {
         padding-inline: 9px;
-        font-size: 0.74rem;
+        /* STAGE 22 - legible font size: never under 12px (0.75rem). */
+        font-size: 0.8rem;
     }
 
     .hero-proof {

@@ -1,3 +1,71 @@
-# SARMAD Attendance - do not index the application surface
+# =====================================================================
+# SARMAD Attendance - crawler policy (STAGE 22)
+# =====================================================================
+# The public landing page (the site root) is the ONLY page that must be
+# indexed. Everything else is the application surface: the login screen,
+# the manager panel, the owner panel, the device kiosk (a PWA that lives
+# on a tablet), the JSON API, the installer and the internal folders of
+# the package.
+#
+# How this is resolved: a crawler uses the LONGEST matching pattern, so
+# "Allow: /$" (2 characters) beats the catch-all "Disallow: /" (1
+# character) for the root URL, while every other URL stays blocked.
+# The assets folder is allowed on purpose - Googlebot must be able to
+# fetch landing.css and landing.js to render and judge the page.
+#
+# Sub-directory installation: this file is only ever served at the domain
+# root (public_html/robots.txt). If the package is extracted into a folder
+# such as public_html/attendance/, point the Allow lines at that folder:
+#     Allow: /attendance/$
+#     Allow: /attendance/assets/
+# =====================================================================
+
 User-agent: *
+
+# --- Public marketing page: open to every crawler ---------------------
+Allow: /$
+Allow: /assets/
+Allow: /manifest.webmanifest
+Allow: /robots.txt
+
+# --- Device kiosk (PWA on a tablet, holds a device token) -------------
+Disallow: /device
+Disallow: /device/
+
+# --- Login and the authenticated panels -------------------------------
+Disallow: /login
+Disallow: /logout
+Disallow: /dashboard
+Disallow: /account/
+Disallow: /manager/
+Disallow: /owner
+Disallow: /owner/
+Disallow: /devices
+Disallow: /devices/
+Disallow: /emergency/
+
+# --- Machine interfaces, installer and health probe -------------------
+Disallow: /api/
+Disallow: /health
+Disallow: /install
+Disallow: /install/
+
+# --- Package internals: data, sources, docs, tooling, dependencies ----
+Disallow: /app/
+Disallow: /config/
+Disallow: /docs/
+Disallow: /routes/
+Disallow: /sql/
+Disallow: /storage/
+Disallow: /tests/
+Disallow: /tools/
+Disallow: /uploads/
+Disallow: /vendor/
+Disallow: /views/
+Disallow: /build.sh
+Disallow: /composer.json
+Disallow: /composer.lock
+Disallow: /*.md$
+
+# --- Catch-all: anything not allowed above stays out of the index -----
 Disallow: /

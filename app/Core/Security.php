@@ -25,8 +25,12 @@ final class Security
         header('X-Frame-Options: SAMEORIGIN');
         header('Referrer-Policy: strict-origin-when-cross-origin');
         header('X-Permitted-Cross-Domain-Policies: none');
-        header('Permissions-Policy: geolocation=(), microphone=(), camera=(self)');
+        header('Permissions-Policy: ' . self::permissionsPolicy());
         header('Cross-Origin-Opener-Policy: same-origin');
+
+        // STAGE 22 - deprecated legacy XSS auditor, explicitly disabled
+        // (OWASP / MDN). The CSP below is the real control.
+        header('X-XSS-Protection: 0');
 
         // Removed so intermediary caches never store authenticated pages.
         header_remove('X-Powered-By');
@@ -34,6 +38,20 @@ final class Security
         if (self::isHttps()) {
             header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
         }
+    }
+
+    /**
+     * STAGE 22 - the Permissions-Policy shared by .htaccess and PHP.
+     *
+     * Only the features this product does not use are switched off; the kiosk
+     * keeps the camera (its whole job is reading a face). Features that are
+     * not named keep their browser default, which for a top level document is
+     * "this origin only", so fullscreen/clipboard still work for the panels.
+     */
+    public static function permissionsPolicy(): string
+    {
+        return 'geolocation=(), microphone=(), camera=(self), payment=(), usb=(), '
+            . 'magnetometer=(), gyroscope=(), accelerometer=(), browsing-topics=()';
     }
 
     public static function isHttps(): bool
@@ -62,29 +80,61 @@ final class Security
     }
 
     /**
-     * Content-Security-Policy for the HTML surface. Kept separate so the
-     * API / kiosk responses (stage 3+) can opt out.
+     * STAGE 22 - the site-wide Content-Security-Policy.
+     *
+     * The authoritative copy is served by the web server (/.htaccess section
+     * 5): that layer also covers static files (robots.txt, sw.js, assets/*)
+     * and is what a security scanner reaches. This method is the fallback for
+     * environments where mod_headers cannot run (`php -S`, nginx, a host with
+     * AllowOverride off) and MUST stay in sync with it -
+     * tests/stage22_security_seo_test.js compares the two policies directive
+     * by directive so a drift fails the suite.
+     *
+     * Why 'unsafe-inline' survives in script-src/style-src: the panel
+     * templates legitimately contain an inline <script> block
+     * (views/manager/attendance/index.php), inline onclick handlers
+     * (views/devices/index.php, views/manager/reports/index.php) and inline
+     * style="" attributes (the STAGE 21 logo caps). The kiosk does NOT inherit
+     * this policy: DeviceKioskPageController puts a stricter one
+     * (script-src 'self') on its own response and .htaccess steps aside for
+     * /device, because a kiosk holds a long lived device token in the browser.
      */
-    public static function sendCsp(bool $allowInlineScripts = false): void
+    public static function contentSecurityPolicy(): string
+    {
+        return implode('; ', [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "media-src 'self' data: blob: mediastream:",
+            "font-src 'self' data:",
+            "connect-src 'self' data: blob:",
+            "worker-src 'self' blob:",
+            "manifest-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'self'",
+        ]);
+    }
+
+    /**
+     * Send the site-wide policy.
+     *
+     * @param bool $allowInlineScripts accepted for backwards compatibility and
+     *                                 deliberately ignored: the policy above
+     *                                 always allows inline code, because the
+     *                                 panel templates need it.
+     */
+    public static function sendCsp(bool $allowInlineScripts = true): void
     {
         if (headers_sent()) {
             return;
         }
 
-        $script = $allowInlineScripts ? "'self' 'unsafe-inline'" : "'self'";
+        unset($allowInlineScripts);
 
-        header(
-            "Content-Security-Policy: default-src 'self'; "
-            . "script-src " . $script . "; "
-            . "style-src 'self' 'unsafe-inline'; "
-            . "img-src 'self' data:; "
-            . "font-src 'self' data:; "
-            . "connect-src 'self'; "
-            . "form-action 'self'; "
-            . "frame-ancestors 'self'; "
-            . "base-uri 'self'; "
-            . "object-src 'none'"
-        );
+        header('Content-Security-Policy: ' . self::contentSecurityPolicy());
     }
 
     /* =================================================================

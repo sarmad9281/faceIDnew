@@ -60,6 +60,14 @@ final class Bootstrap
 
         Security::sendHeaders();
 
+        // STAGE 22 - the site-wide Content-Security-Policy. On Apache the copy
+        // in /.htaccess replaces this one (Header set wins over a header sent
+        // by PHP) and is switched off for /device, so the kiosk keeps the
+        // stricter policy of DeviceKioskPageController. Sending it here as
+        // well means the protection also exists when mod_headers cannot run
+        // (php -S during development, nginx, AllowOverride off).
+        Security::sendCsp();
+
         try {
             Database::connect();
         } catch (Throwable $e) {
