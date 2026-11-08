@@ -300,8 +300,22 @@ node tests/device_qr_test.js
 docs/patches/patch-stage22.zip
 ```
 
-- محتوای بسته **همهٔ فایل‌های کامل** این تسک با مسیرهای **نسبت به ریشهٔ پروژه** است؛
-  هیچ پوشهٔ اضافه‌ای داخل زیپ نیست.
+- محتوای بسته **همهٔ ۱۱ فایل کامل** این تسک است (۲ فایل تازه: `docs/STAGE22.md` و
+  `tests/stage22_security_seo_test.js` + ۹ فایل بازنویسی‌شده) با مسیرهای **نسبت به ریشهٔ
+  پروژه**؛ هیچ پوشهٔ اضافه‌ای داخل زیپ نیست:
+
+  ```
+  .htaccess                              README.md
+  app/Bootstrap.php                      app/Core/Security.php
+  app/Support/Url.php                    assets/css/landing.css
+  docs/SECURITY.md                       docs/STAGE22.md
+  robots.txt                             tests/stage22_security_seo_test.js
+  views/landing.php
+  ```
+
+- مشخصات بسته برای راستی‌آزمایی پس از دانلود: **۶۲٬۹۰۲ بایت**،
+  `sha256 = b82acb627254dcb77fc4bbabcb9836704cecdc740c216802ade805b85404c64d`
+  (با `sha256sum docs/patches/patch-stage22.zip` مقایسه کنید).
 - در دایرکت‌ادمین در همان پوشهٔ سایت (`domains/example.com/public_html/`) اکسترکت کنید و
   «Overwrite» را تأیید کنید. هیچ فایل موجودی حذف نمی‌شود.
 - `config/config.php`، پوشهٔ `uploads/` و `vendor/` در بسته نیستند.
