@@ -7,15 +7,53 @@
  * arrive from LandingController so no personal phone number or messenger
  * handle is hard-coded in the template.
  *
+ * STAGE 22 - this is the ONLY page of the product a search engine may index
+ * (see /robots.txt), so the whole SEO block lives here: an absolute
+ * <link rel="canonical">, explicit index directives, Open Graph + Twitter
+ * cards and schema.org JSON-LD built from the very same values the page
+ * renders (nothing is invented - an empty contact channel is simply absent).
+ * The page also owns the accessibility contract of the marketing surface:
+ * every aria-label sits on an element whose role is allowed to carry one, and
+ * no landmark is nested inside another one.
+ *
  * @var callable $e
  * @var callable $url
  * @var callable $asset
+ * @var callable $css
  * @var string $title
+ * @var string $canonical optional absolute URL, defaults to the site root
  * @var array<string,string> $contact
  */
 $title = isset($title) && is_string($title) && $title !== ''
     ? $title
     : 'سرمد | سامانه حضور و غیاب هوشمند با تشخیص چهره';
+
+/**
+ * STAGE 22 - ONE description for meta / Open Graph / Twitter / JSON-LD, so
+ * the four can never drift apart. Long enough for a rich snippet, short
+ * enough not to be cut in half by Google.
+ */
+$seoDescription = 'سامانه حضور و غیاب هوشمند سرمد با تشخیص چهره؛ بدون خرید دستگاه اختصاصی و با هر گوشی یا تبلت. کیوسک ثبت تردد هنگام قطعی موقت اینترنت نیز به ثبت ادامه می‌دهد و پس از اتصال مجدد با سرور هم‌گام می‌شود.';
+
+/**
+ * STAGE 22 - absolute URL of this page.
+ *
+ * app.url decides the canonical host when the operator configured one;
+ * otherwise the current request does. Url::full() adds the installation
+ * folder (root or /attendance) exactly once, so a sub-directory install
+ * never publishes a doubled canonical path.
+ */
+$canonical = isset($canonical) && is_string($canonical) && $canonical !== ''
+    ? $canonical
+    : \App\Support\Url::full('/');
+
+$siteName = 'سرمد | سامانه حضور و غیاب هوشمند';
+
+/** Absolute - og:image and schema.org must not receive a relative path. */
+$ogImage = \App\Support\Url::full('/assets/icons/icon-512.png');
+
+/** Google ignores this tag; other crawlers and local SEO auditors read it. */
+$seoKeywords = 'حضور و غیاب, سامانه حضور و غیاب, حضور و غیاب تشخیص چهره, کیوسک حضور و غیاب, تردد پرسنل, محاسبه کارکرد, حقوق و دستمزد, اعطای نمایندگی, سرمد';
 
 $contact = array_merge([
     'phoneDisplay' => '',
@@ -38,6 +76,69 @@ $hasAnyContact = $hasPhone || $hasInstagram || $hasWhatsapp || $hasTelegram;
 $phoneDisplay = (string) $contact['phoneDisplay'];
 $instagramLabel = (string) $contact['instagramLabel'];
 $telegramLabel = (string) $contact['telegramLabel'];
+
+/* ---------------------------------------------------------------------
+ * STAGE 22 - schema.org graph for the landing page.
+ *
+ * Only real values are published: a contact channel that the owner has not
+ * filled in is simply absent, and no price, rating or review is invented
+ * (Google treats fabricated structured data as spam). The graph is encoded
+ * with JSON_HEX_TAG so a value can never close the <script> block, and a
+ * failed encode renders nothing instead of broken JSON.
+ * ------------------------------------------------------------------- */
+$sameAs = array_values(array_filter(
+    [(string) $contact['instagramUrl'], (string) $contact['whatsappUrl'], (string) $contact['telegramUrl']],
+    static fn (string $channel): bool => $channel !== ''
+));
+
+$organization = [
+    '@type'         => 'Organization',
+    '@id'           => $canonical . '#organization',
+    'name'          => 'سرمد',
+    'alternateName' => 'SARMAD Attendance',
+    'url'           => $canonical,
+    'logo'          => ['@type' => 'ImageObject', 'url' => $ogImage],
+    'description'   => $seoDescription,
+];
+
+if ($sameAs !== []) {
+    $organization['sameAs'] = $sameAs;
+}
+
+$jsonLd = json_encode([
+    '@context' => 'https://schema.org',
+    '@graph'   => [
+        $organization,
+        [
+            '@type'      => 'WebSite',
+            '@id'        => $canonical . '#website',
+            'url'        => $canonical,
+            'name'       => $siteName,
+            'inLanguage' => 'fa',
+            'publisher'  => ['@id' => $canonical . '#organization'],
+        ],
+        [
+            '@type'                => 'SoftwareApplication',
+            'name'                 => $title,
+            'url'                  => $canonical,
+            'description'          => $seoDescription,
+            'inLanguage'           => 'fa',
+            'applicationCategory'  => 'BusinessApplication',
+            'applicationSubCategory' => 'Human Resources',
+            'operatingSystem'      => 'Web',
+            'featureList'          => [
+                'کیوسک تشخیص چهره روی گوشی یا تبلت، بدون سخت‌افزار اختصاصی',
+                'ثبت تردد آفلاین و هم‌گام‌سازی خودکار پس از اتصال مجدد',
+                'مدیریت شعب، دستگاه‌ها و شیفت‌های کاری',
+                'گزارش کارکرد، محاسبه حقوق و خروجی اکسل',
+                'ربات تلگرام برای اطلاع‌رسانی لحظه‌ای ورود و خروج پرسنل',
+                'اعطای نمایندگی رسمی و عاملیت فروش',
+            ],
+        ],
+    ],
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+
+$jsonLd = is_string($jsonLd) ? $jsonLd : '';
 ?>
 <!doctype html>
 <html lang="fa" dir="rtl">
@@ -45,17 +146,44 @@ $telegramLabel = (string) $contact['telegramLabel'];
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $e($title) ?></title>
-    <meta name="description" content="سامانه حضور و غیاب هوشمند سرمد با تشخیص چهره؛ بدون خرید دستگاه اختصاصی و با هر گوشی یا تبلت. کیوسک ثبت تردد هنگام قطعی موقت اینترنت نیز به ثبت ادامه می‌دهد و پس از اتصال مجدد با سرور هم‌گام می‌شود.">
+
+    <!-- STAGE 22 - SEO: the landing page is indexable, its canonical URL is
+         absolute and self referencing, and one description feeds Google,
+         Open Graph, Twitter and the JSON-LD graph below. -->
+    <meta name="description" content="<?= $e($seoDescription) ?>">
+    <meta name="keywords" content="<?= $e($seoKeywords) ?>">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <meta name="author" content="<?= $e($siteName) ?>">
+    <link rel="canonical" href="<?= $e($canonical) ?>">
+    <link rel="alternate" hreflang="fa" href="<?= $e($canonical) ?>">
+    <link rel="alternate" hreflang="x-default" href="<?= $e($canonical) ?>">
+
     <meta name="theme-color" content="#040713">
     <meta name="color-scheme" content="dark">
+
     <meta property="og:type" content="website">
     <meta property="og:locale" content="fa_IR">
+    <meta property="og:site_name" content="<?= $e($siteName) ?>">
     <meta property="og:title" content="<?= $e($title) ?>">
-    <meta property="og:description" content="نسل نوین حضور و غیاب با هوش مصنوعی و تشخیص چهره؛ کیوسک هوشمند اختصاصی مجموعه شما روی گوشی یا تبلت.">
-    <meta property="og:image" content="<?= $e($asset('/icons/icon-512.png')) ?>">
+    <meta property="og:description" content="<?= $e($seoDescription) ?>">
+    <meta property="og:url" content="<?= $e($canonical) ?>">
+    <meta property="og:image" content="<?= $e($ogImage) ?>">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:image:alt" content="نشان سامانه حضور و غیاب هوشمند سرمد">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<?= $e($title) ?>">
+    <meta name="twitter:description" content="<?= $e($seoDescription) ?>">
+    <meta name="twitter:image" content="<?= $e($ogImage) ?>">
+    <meta name="twitter:image:alt" content="نشان سامانه حضور و غیاب هوشمند سرمد">
+
     <link rel="icon" type="image/png" sizes="192x192" href="<?= $e($asset('/icons/icon-192.png')) ?>">
     <link rel="apple-touch-icon" href="<?= $e($asset('/icons/apple-touch-icon.png')) ?>">
     <link rel="stylesheet" href="<?= $e($css('/css/landing.css')) ?>">
+<?php if ($jsonLd !== ''): ?>
+    <script type="application/ld+json"><?= $jsonLd ?></script>
+<?php endif; ?>
 </head>
 <body class="landing-body">
 <a class="skip-link" href="#main">پرش به محتوای اصلی</a>
@@ -65,7 +193,7 @@ $telegramLabel = (string) $contact['telegramLabel'];
 
 <header class="site-header">
     <div class="wrap nav-shell">
-        <a class="brand" href="<?= $e($url('/')) ?>" aria-label="سامانه حضور و غیاب هوشمند سرمد">
+        <a class="brand" href="<?= $e($url('/')) ?>">
             <span class="brand-mark"><img src="<?= $e($asset('/icons/icon-192.png')) ?>" alt=""></span>
             <span class="brand-copy">
                 <strong>سرمد</strong>
@@ -108,14 +236,14 @@ $telegramLabel = (string) $contact['telegramLabel'];
                 </a>
             </div>
 
-            <ul class="hero-proof" aria-label="مزیت‌های کلیدی">
+            <ul class="hero-proof" role="list">
                 <li>راه‌اندازی سریع روی گوشی یا تبلت</li>
                 <li>ثبت آفلاین در کیوسک و هم‌گام‌سازی خودکار پس از اتصال</li>
                 <li>گزارش، حقوق و خروجی اکسل</li>
             </ul>
         </div>
 
-        <div class="hero-visual" id="hero-visual" aria-label="نمایش گرافیکی اسکن سه‌بعدی چهره">
+        <div class="hero-visual" id="hero-visual" role="img" aria-label="نمایش گرافیکی اسکن سه‌بعدی چهره">
             <div class="holo-scene" id="holo-scene">
                 <div class="holo-card" aria-hidden="true">
                     <div class="holo-head">
@@ -130,7 +258,7 @@ $telegramLabel = (string) $contact['telegramLabel'];
                         <span class="corner corner-bottom-right"></span>
                         <span class="corner corner-bottom-left"></span>
 
-                        <svg class="face-svg" viewBox="0 0 240 280" role="img" aria-label="مش‌بندی نورانی چهره">
+                        <svg class="face-svg" viewBox="0 0 240 280" aria-hidden="true" focusable="false">
                             <path class="face-outline" d="M120 18 C164 18 190 52 190 108 C190 176 160 236 120 260 C80 236 50 176 50 108 C50 52 76 18 120 18 Z"></path>
 
                             <path class="mesh-line" d="M120 18 V260"></path>
@@ -312,7 +440,7 @@ $telegramLabel = (string) $contact['telegramLabel'];
             <h2 id="agency-title">اعطای نمایندگی رسمی و عاملیت فروش سرمد</h2>
             <p>از شرکت‌های نرم‌افزاری، متخصصان فناوری اطلاعات، مجریان سیستم‌های سازمانی و مجموعه‌های فعال در حوزه کلینیک و خدمات دعوت می‌کنیم برای اخذ نمایندگی فروش و پشتیبانی سرمد در سراسر کشور اقدام کنند.</p>
 
-            <ul class="benefit-list" aria-label="مزایای نمایندگی">
+            <ul class="benefit-list" role="list">
                 <li>سود مستمر ماهیانه از فروش، تمدید اشتراک و خدمات مشتریان</li>
                 <li>پنل اختصاصی مدیریت مشتریان، دستگاه‌ها و پیگیری فرصت‌های فروش</li>
                 <li>پشتیبانی جامع فنی ۲۴ ساعته، آموزش محصول و همراهی در راه‌اندازی مشتری</li>
@@ -324,10 +452,10 @@ $telegramLabel = (string) $contact['telegramLabel'];
             </div>
         </div>
 
-        <aside class="conditions-card" aria-labelledby="conditions-title">
+        <aside class="conditions-card" role="note" aria-labelledby="conditions-title">
             <h3 id="conditions-title">شرایط همکاری</h3>
             <p>شرایط نهایی هر محدوده پس از بررسی ظرفیت بازار و توان اجرایی متقاضی در قرارداد رسمی مشخص می‌شود.</p>
-            <ul class="condition-list">
+            <ul class="condition-list" role="list">
                 <li>توان معرفی، فروش و پشتیبانی محلی در محدوده فعالیت</li>
                 <li>آشنایی با نصب نرم‌افزار، شبکه و آموزش کاربران یا برخورداری از تیم فنی</li>
                 <li>تعهد به پاسخ‌گویی، محرمانگی داده‌ها و استانداردهای برند سرمد</li>
@@ -348,7 +476,7 @@ $telegramLabel = (string) $contact['telegramLabel'];
         </div>
 
         <?php if ($hasAnyContact): ?>
-            <div class="contact-grid" aria-label="مسیرهای تماس مستقیم">
+            <div class="contact-grid" role="group" aria-label="مسیرهای تماس مستقیم">
                 <?php if ($hasInstagram): ?>
                     <a class="channel-card channel-instagram" href="<?= $e($contact['instagramHref']) ?>" target="_blank" rel="noopener noreferrer">
                         <span class="channel-icon" aria-hidden="true">
@@ -416,7 +544,7 @@ $telegramLabel = (string) $contact['telegramLabel'];
 
 <footer class="site-footer">
     <div class="wrap footer-shell">
-        <a class="brand" href="<?= $e($url('/')) ?>" aria-label="بازگشت به صفحه اصلی سرمد">
+        <a class="brand" href="<?= $e($url('/')) ?>">
             <span class="brand-mark"><img src="<?= $e($asset('/icons/icon-192.png')) ?>" alt=""></span>
             <span class="brand-copy">
                 <strong>سرمد</strong>

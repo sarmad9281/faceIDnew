@@ -19,6 +19,9 @@
 | Brute-force | `attendance_login_attempts` + قفل حساب و محدودیت IP |
 | Audit Trail | `attendance_audit_logs` برای رویدادهای مهم |
 | حفاظت فایل‌ها | `.htaccess` روی `config`, `app`, `sql`, `views`, `routes`, `storage`, `docs`, `tests` |
+| هدرهای امنیتی | `.htaccess` بند ۵: CSP در حالت enforce + HSTS (فقط HTTPS) + XFO + XCTO + Referrer-Policy + Permissions-Policy؛ کپی هم‌تراز در `Security::sendHeaders()/sendCsp()` برای هاست بدون `mod_headers` |
+| CSP کیوسک | `/device` از سیاست عمومی مستثنی است (`env=!SARMAD_KIOSK_PAGE`) و سیاست سخت‌گیرانهٔ `DeviceKioskPageController` با `script-src 'self'` روی آن می‌ماند |
+| ایندکس نشدن سامانه | `robots.txt`: فقط `Allow: /$` و `/assets/` باز است؛ پنل، کیوسک، API، نصب‌کننده و داخل بسته بسته‌اند + `X-Robots-Tag: noindex` روی کیوسک |
 | امنیت Upload | `uploads/.htaccess` اجرای PHP را کامل غیرفعال می‌کند؛ اعتبارسنجی تصویر در `UploadService` |
 
 ## جزئیات مهم
@@ -90,7 +93,24 @@
 ],
 ```
 
-### ۶) اگر رمز دیتابیس یا کلید برنامه لو رفت
+### ۶) هدرهای امنیتی و CSP (تسک ۲۲)
+
+منبع حقیقت، بند ۵ فایل `.htaccess` است:
+
+- `Content-Security-Policy` در حالت enforce، فقط `'self'` به‌همراه `data:`/`blob:`/
+  `mediastream:` در جاهایی که کیوسک و بارکد واقعاً لازم دارند. `'unsafe-inline'` برای
+  `script-src`/`style-src` نگه داشته شده چون قالب‌های پنل `<script>` اینلاین، `onclick=`
+  و `style=""` دارند؛ `'unsafe-eval'` لازم نبود (هیچ `eval()` در tfjs/face-api/jsQR نیست).
+- `App\Core\Security::contentSecurityPolicy()` دقیقاً همان رشته را برمی‌گرداند و
+  `Bootstrap::boot()` آن را ارسال می‌کند ⇒ روی Apache هدر PHP جایگزین می‌شود (یک هدر)،
+  و بدون `mod_headers` هم محافظت برقرار است.
+  `tests/stage22_security_seo_test.js` هم‌ترازی این دو را کنترل می‌کند.
+- اگر منبع تازه‌ای لازم شد (مثلاً یک CDN)، آن را **در هر دو جا** اضافه کنید.
+- `Strict-Transport-Security` فقط با `env=HTTPS` ارسال می‌شود؛ کیوسک روی شبکهٔ محلی با
+  `http` قفل نمی‌شود. به همین دلیل `upgrade-insecure-requests` هم عمداً در CSP نیست.
+- جزئیات کامل: `docs/STAGE22.md`.
+
+### ۷) اگر رمز دیتابیس یا کلید برنامه لو رفت
 
 1. رمز کاربر دیتابیس را در DirectAdmin تغییر دهید و `config/config.php` را به‌روز کنید.
 2. کلید برنامه (`app.key`) را عوض کنید → تمام توکن‌های دستگاه/API باطل می‌شوند

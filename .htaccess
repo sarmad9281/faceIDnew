@@ -75,11 +75,64 @@ DirectoryIndex index.php
 # ---------------------------------------------------------------------
 # 5) Security headers (safe defaults for a shared hosting account)
 # ---------------------------------------------------------------------
+# STAGE 22 - the site-wide Content-Security-Policy lives HERE, in the web
+# server, so it also covers static files (robots.txt, sw.js, assets/*) and
+# every PHP response, on Apache 2.2+ (mod_setenvif + mod_headers only - no
+# Apache 2.4 <If> expression is used on purpose).
+#
+# Why this policy is safe for this application:
+#   - every script, style, font, image, model and sound file is served from
+#     this same installation (there is no CDN, no Google font, no remote
+#     iframe and no cross-origin fetch anywhere in the code), so 'self'
+#     is enough for script/style/font/connect;
+#   - 'unsafe-inline' is kept for script-src and style-src because the panel
+#     templates legitimately contain inline <script> blocks
+#     (views/manager/attendance/index.php), inline onclick handlers
+#     (views/devices/index.php, views/manager/reports/index.php) and inline
+#     style="" attributes (the STAGE 21 logo caps). Removing it would break
+#     the manager panel; the kiosk does NOT get it (see the exclusion below);
+#   - 'unsafe-eval' is NOT needed: tfjs-1.7.4, face-api-0.22.2, jsQR and
+#     qrcode.min.js contain no eval()/new Function();
+#   - blob:/data:/mediastream: stay allowed only where the kiosk really uses
+#     them (camera stream, canvas QR symbols, generated badge images, audio);
+#   - object-src 'none' + base-uri 'self' + form-action 'self' +
+#     frame-ancestors 'self' close plugin, <base> hijack, form hijack and
+#     clickjacking (frame-ancestors is the modern X-Frame-Options).
+#
+# The kiosk shell (/device and /device/offline) already ships its own
+# STRICTER policy from DeviceKioskPageController (script-src 'self' - inline
+# code is refused there). `Header set` REPLACES a header of the same name, so
+# the site-wide policy is switched off for those URLs and the hardened kiosk
+# policy survives. If mod_setenvif were ever unavailable the kiosk simply
+# falls back to this policy, which still allows everything it needs.
+<IfModule mod_setenvif.c>
+    SetEnvIfNoCase Request_URI "^(/[^/?]*)*/device(/|\?|$)" SARMAD_KIOSK_PAGE
+</IfModule>
+
 <IfModule mod_headers.c>
+    # -- Content-Security-Policy (enforcement mode, single physical line) --
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob: mediastream:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" env=!SARMAD_KIOSK_PAGE
+
+    # -- Baseline hardening (identical to App\Core\Security::sendHeaders()) --
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set X-Permitted-Cross-Domain-Policies "none"
+
+    # The kiosk needs the camera, nothing else. Every feature named here is
+    # switched off; features that are not named keep their browser default
+    # (fullscreen, clipboard-write, ... stay available to this origin only).
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(self), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), browsing-topics=()"
+
+    # Deprecated legacy XSS auditor: explicitly disabled (OWASP/MDN). A CSP in
+    # enforcement mode is the real control; the old auditor could block a
+    # legitimate page instead of an attack.
+    Header always set X-XSS-Protection "0"
+
+    # HSTS is sent ONLY on a TLS connection (RFC 6797) and never on plain
+    # HTTP, so a kiosk tablet on a local http address is not locked out.
+    # Value matches App\Core\Security::sendHeaders().
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
 </IfModule>
 
 # ---------------------------------------------------------------------
