@@ -86,9 +86,6 @@
         statusDot: document.getElementById('k-status-dot'),
         statusText: document.getElementById('k-status-text'),
         queueCount: document.getElementById('k-queue-count'),
-        queueTools: document.getElementById('k-queue-tools'),
-        queueSettingsCount: document.getElementById('k-queue-settings-count'),
-        queueClear: document.getElementById('k-queue-clear'),
         lastSeen: document.getElementById('k-last-seen'),
         entryBtn: document.getElementById('k-action-entry'),
         exitBtn: document.getElementById('k-action-exit'),
@@ -139,7 +136,7 @@
         token: null,
         config: null,
         settings: null,
-        features: { attendance: true, branches: true },
+        features: { attendance: false, branches: false },
         status: 'booting',       // booting | active | pending | blocked | unactivated
         online: navigator.onLine !== false,
         busy: false,
@@ -181,11 +178,7 @@
     function deviceIdFromCredential() {
         var stored = credentials.load();
 
-        if (stored && stored.device_id) {
-            return parseInt(stored.device_id, 10) || 0;
-        }
-        return stored && state.config && state.config.device
-            ? (parseInt(state.config.device.id, 10) || 0) : 0;
+        return stored && stored.device_id ? parseInt(stored.device_id, 10) : 0;
     }
 
     /**
@@ -199,11 +192,9 @@
         }
 
         var url = '/face-data' + (force ? '?refresh=1' : '');
-        var token = state.token;
-        var deviceId = deviceIdFromCredential();
 
         return api(url, { method: 'GET' }).then(function (payload) {
-            if (!payload.success || state.token !== token || state.status !== 'active' || deviceIdFromCredential() !== deviceId) {
+            if (!payload.success) {
                 return false;
             }
 
@@ -227,10 +218,7 @@
                 return true;
             }
 
-            return store.write(deviceId, dataset).then(function () {
-                if (state.token !== token || state.status !== 'active' || deviceIdFromCredential() !== deviceId) {
-                    return false;
-                }
+            return store.write(deviceIdFromCredential(), dataset).then(function () {
                 state.faceGallery = dataset;
                 state.faceSyncVersion = parseInt(dataset.version, 10) || 0;
 
@@ -254,51 +242,6 @@
         }
 
         return null;
-    }
-
-    /**
-     * Load this device's persisted descriptor gallery into memory.
-     *
-     * FaceStore.cached() only sees the copy already held by this page. After
-     * an offline refresh there is no such copy yet, even though IndexedDB
-     * still has the complete gallery from the last successful sync.
-     */
-    function loadCachedGallery() {
-        var existing = currentGallery();
-
-        if (existing) {
-            return Promise.resolve(existing);
-        }
-
-        var store = faceStore();
-        var deviceId = deviceIdFromCredential();
-        var token = state.token;
-
-        if (!store || !deviceId || typeof store.read !== 'function') {
-            return Promise.resolve(null);
-        }
-
-        return store.read(deviceId).then(function (cached) {
-            if (state.token !== token || state.status !== 'active' || deviceIdFromCredential() !== deviceId) {
-                return null;
-            }
-            if (state.faceGallery) {
-                return state.faceGallery;
-            }
-            if (cached && cached.employees && cached.employees.length) {
-                state.faceGallery = cached;
-
-                if (state.faceSyncVersion < 0) {
-                    state.faceSyncVersion = parseInt(cached.version, 10) || 0;
-                }
-
-                return cached;
-            }
-
-            return null;
-        }, function () {
-            return null;
-        });
     }
 
     /** Load the model ONCE per page load (a tablet must not reload it per attempt). */
@@ -341,7 +284,9 @@
 
         var store = faceStore();
 
-        return store ? store.clearAll() : Promise.resolve();
+        if (store) {
+            store.clearAll();
+        }
     }
 
     /* -----------------------------------------------------------------
@@ -426,11 +371,6 @@
      * ----------------------------------------------------------------*/
     var credentials = {
         save: function (token, meta) {
-            var old = credentials.load();
-            var newId = meta && meta.id ? parseInt(meta.id, 10) : 0;
-            if (old && old.device_id && newId && parseInt(old.device_id, 10) !== newId) {
-                clearCachedConfig();
-            }
             try {
                 window.localStorage.setItem(SETUP.storageKey, JSON.stringify({
                     token: token,
@@ -464,7 +404,6 @@
         clear: function () {
             try {
                 window.localStorage.removeItem(SETUP.storageKey);
-                window.localStorage.removeItem(SETUP.storageKey + '_config');
             } catch (error) {
                 /* ignore */
             }
@@ -472,46 +411,6 @@
             state.token = null;
         }
     };
-
-    /**
-     * Read the last successful device config for the CURRENT activation.
-     * The server config contains no device token and no face descriptors;
-     * those remain in their separate credential and IndexedDB stores.
-     */
-    function readCachedConfig() {
-        try {
-            var raw = window.localStorage.getItem(SETUP.storageKey + '_config');
-            var cachedConfig = raw ? JSON.parse(raw) : null;
-
-            if (!cachedConfig || typeof cachedConfig !== 'object' || Array.isArray(cachedConfig)
-                || !(cachedConfig.customer || cachedConfig.settings || cachedConfig.device)) {
-                return null;
-            }
-
-            var credentialDeviceId = deviceIdFromCredential();
-            var configDeviceId = cachedConfig.device && cachedConfig.device.id
-                ? parseInt(cachedConfig.device.id, 10)
-                : 0;
-
-            // Do not use another known device's branding/config, but keep the
-            // cache intact and tolerate older credentials with no device id.
-            if (credentialDeviceId && configDeviceId && credentialDeviceId !== configDeviceId) {
-                return null;
-            }
-
-            return cachedConfig;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function clearCachedConfig() {
-        try {
-            window.localStorage.removeItem(SETUP.storageKey + '_config');
-        } catch (error) {
-            /* ignore */
-        }
-    }
 
     /* -----------------------------------------------------------------
      * Offline queue (stage 6/7 - real sync)
@@ -540,11 +439,10 @@
             try {
                 window.localStorage.setItem(SETUP.queueKey, JSON.stringify(items));
             } catch (error) {
-                return false; // Never claim an unsaved punch was queued.
+                /* storage full or blocked: the punch stays in memory only */
             }
 
             renderQueue();
-            return true;
         }
     }, { max: window.SarmadDeviceQueue.MAX_ITEMS });
 
@@ -606,8 +504,6 @@
     function renderQueue() {
         var count = queue.count();
         text(el.queueCount, count > 0 ? 'در صف ارسال: ' + count : '');
-        text(el.queueSettingsCount, count);
-        if (el.queueTools) el.queueTools.hidden = count === 0;
     }
 
     /* -----------------------------------------------------------------
@@ -638,7 +534,6 @@
                 return { success: false, code: 'INVALID_RESPONSE', message: 'پاسخ سرور قابل خواندن نبود.' };
             }).then(function (payload) {
                 payload.__status = response.status;
-                if (response.status >= 400) payload.success = false;
 
                 return payload;
             });
@@ -770,7 +665,6 @@
     }
 
     function showBlocked(code, message) {
-        clearCachedConfig();
         state.status = 'blocked';
         state.blockedCode = code;
         hideBoot();
@@ -787,7 +681,7 @@
         root.setAttribute('data-state', 'home');
         root.setAttribute('data-attendance', state.features.attendance ? 'on' : 'off');
 
-        setActionEnabled(state.features.attendance !== false);
+        setActionEnabled(state.features.attendance);
     }
 
     function setActionEnabled(enabled) {
@@ -820,12 +714,8 @@
                 return;
             }
 
-            return loadCachedGallery().then(function () {
-                return state.online ? syncFaceData(false) : false;
-            }).then(function () {
-                if (state.status === 'active' && root.getAttribute('data-state') === 'camera:' + action) {
-                    startFaceLoop();
-                }
+            return syncFaceData(false).then(function () {
+                startFaceLoop();
             });
         });
     }
@@ -838,10 +728,6 @@
         flag(el.chipLoading, name === 'loading');
         flag(el.chipRecognizing, name === 'recognizing');
         flag(el.cameraRetry, name === 'captured');
-
-        if (el.cameraRetry) {
-            el.cameraRetry.hidden = name !== 'captured';
-        }
         flag(el.faceFrame, name === 'recognizing' || name === 'captured', 'is-locked');
         flag(el.faceFrame, name === 'guidance', 'is-warning');
 
@@ -867,7 +753,7 @@
         text(el.errorKind, kind);
         text(el.errorTitle, title);
         text(el.errorMessage, message);
-        playVoice(false);
+        playTone(false);
 
         if (autoClose) {
             window.setTimeout(function () {
@@ -975,7 +861,7 @@
 
         text(el.successTitle, payload.title || 'ورود با موفقیت ثبت شد');
         text(el.successMessage, payload.message || '');
-        playVoice(true, state.action);
+        playTone(true);
 
         window.clearTimeout(state.successTimer);
         state.successTimer = window.setTimeout(function () {
@@ -988,44 +874,6 @@
     /* -----------------------------------------------------------------
      * Sound (WebAudio, no asset needed - works offline)
      * ----------------------------------------------------------------*/
-    var voiceAudio = null;
-    var voiceGeneration = 0;
-    function audioPath(name) {
-        return SETUP.base.replace(/\/?$/, '/') + 'assets/audio/' + name + '.mp3?v=1.1.0';
-    }
-    // Unlock on the employee's tap (some mobile browsers otherwise block an
-    // asynchronous recognition result). Failure remains non-fatal.
-    function unlockVoice() {
-        if (!state.settings || !state.settings.success_sound) return;
-        try {
-            if (!voiceAudio) voiceAudio = new window.Audio();
-            var generation = ++voiceGeneration;
-            voiceAudio.onerror = null;
-            voiceAudio.src = audioPath('entry');
-            voiceAudio.muted = true;
-            var playing = voiceAudio.play();
-            if (playing && typeof playing.then === 'function') playing.then(function () {
-                if (generation === voiceGeneration) { voiceAudio.pause(); voiceAudio.currentTime = 0; voiceAudio.muted = false; }
-            }).catch(function () { if (generation === voiceGeneration) voiceAudio.muted = false; });
-        } catch (error) { /* audio will fall back when the result is shown */ }
-    }
-    function playVoice(success, action) {
-        if (!state.settings || !state.settings.success_sound) return;
-        var path = success ? (action === 'exit' ? 'exit' : 'entry') : 'error';
-        try {
-            if (!voiceAudio) voiceAudio = new window.Audio();
-            ++voiceGeneration;
-            voiceAudio.pause();
-            voiceAudio.muted = false;
-            voiceAudio.src = audioPath(path);
-            var failed = false;
-            function fallback() { if (!failed) { failed = true; playTone(success); } }
-            voiceAudio.onerror = fallback;
-            var played = voiceAudio.play();
-            if (played && typeof played.catch === 'function') played.catch(fallback);
-        } catch (error) { playTone(success); }
-    }
-
     function playTone(success) {
         if (!state.settings || !state.settings.success_sound) {
             return;
@@ -1114,19 +962,12 @@
             }
 
             credentials.save(payload.data.token, payload.data.device);
-            // Finish clearing the previous activation before fetching new faces.
-            wipeFaceData().then(function () {
-                applyConfig(payload.data.config);
-                only(null);
-                showHome();
-                startHeartbeat();
-                pushHeartbeat();
-                ensureEngine().then(function (report) {
-                    if (report.ok) {
-                        return syncFaceData(false);
-                    }
-                });
-            });
+            wipeFaceData();
+            applyConfig(payload.data.config);
+            only(null);
+            showHome();
+            startHeartbeat();
+            pushHeartbeat();
         });
     }
 
@@ -1142,10 +983,6 @@
         state.settings = config.settings || {};
         state.features = config.features || state.features;
         state.lastSeen = config.device ? config.device.last_seen_at : null;
-
-        try {
-            window.localStorage.setItem(SETUP.storageKey + '_config', JSON.stringify(config));
-        } catch (e) { /* ignore */ }
 
         var customer = config.customer || {};
         var branch = config.branch || null;
@@ -1210,8 +1047,7 @@
         state.faceReady = !!(engine && engine.isReady());
 
         /* A cached gallery is what keeps the kiosk recognising faces while the
-           internet is down. cached() covers the in-memory copy; after a page
-           refresh the persisted IndexedDB copy must be read explicitly. */
+           internet is down. */
         var store = faceStore();
 
         if (store) {
@@ -1219,26 +1055,24 @@
         }
     }
 
-    /**
-     * Plain-language face status for the settings drawer (never the vectors).
-     *
-     * The drawer is read by the shop staff who run the device, not by
-     * engineers: engine name, backend, distance metric/threshold and sync
-     * internals only confused them, so the line now answers the two
-     * questions they actually have - is it ready, and for how many people.
-     */
+    /** Engine + gallery status for the settings drawer (never the vectors). */
     function faceStatusLine() {
         var engine = faceApi();
         var report = engine ? engine.status() : null;
         var gallery = currentGallery();
 
-        if (!report || !report.loaded) {
-            return 'در حال بارگذاری موتور هوش مصنوعی…';
+        if (!report) {
+            return 'موتور چهره: بارگذاری نشد';
         }
 
-        var count = (gallery && gallery.employees ? gallery.employees.length : 0);
-
-        return 'آماده به‌کار (پرسنل ثبت‌شده: ' + count + ' نفر)';
+        return [
+            'موتور: ' + report.engine + ' ' + (report.loaded ? '(آماده)' : '(بارگذاری‌نشده)'),
+            'بک‌اند: ' + (report.backend || '—'),
+            'آستانه: ' + report.metric + ' @ ' + report.match_threshold,
+            'کارمند هم‌گام‌شده: ' + (gallery && gallery.employees ? gallery.employees.length : 0),
+            'نسخه داده چهره: ' + (state.faceSyncVersion >= 0 ? state.faceSyncVersion : '—'),
+            'liveness: پیاده‌سازی نشده'
+        ].join(' | ');
     }
 
     function initials(name) {
@@ -1256,14 +1090,6 @@
 
         state.settings = settings;
         state.cameraFacing = settings.camera_facing || 'user';
-
-        if (state.config) {
-            state.config.settings = settings;
-
-            try {
-                window.localStorage.setItem(SETUP.storageKey + '_config', JSON.stringify(state.config));
-            } catch (e) { /* ignore */ }
-        }
 
         if (el.setSound) {
             el.setSound.checked = !!settings.success_sound;
@@ -1286,7 +1112,7 @@
         }
 
         if (el.clockWrap) {
-            el.clockWrap.classList.toggle('hide-clock', settings.show_clock === false);
+            el.clockWrap.classList.toggle('hide-clock', !settings.show_clock);
         }
 
         text(el.infoStatus, settings.show_clock === false ? 'ساعت مخفی' : '');
@@ -1306,51 +1132,47 @@
         text(el.infoFace, faceStatusLine());
     }
 
-    // Only an explicit authenticated response may revoke the saved token.
-    function isRevokedResponse(payload) {
-        return payload && payload.__status === 401 &&
-            (payload.code === 'DEVICE_UNAUTHORIZED' || payload.code === 'DEVICE_REVOKED' || payload.code === 'DEVICE_NOT_FOUND');
-    }
-
-    function revokeCredentials(code) {
-        stopHeartbeat();
-        credentials.clear();
-        wipeFaceData();
-        closeCamera();
-        showActivation('اعتبار این دستگاه باطل شده است. کد فعال‌سازی جدید را وارد کنید.', code);
-    }
-
     function loadConfig() {
-        var token = state.token;
         return api('/config', { method: 'GET' }).then(function (payload) {
-            if (!token || state.token !== token) return false;
-            if (payload.success && payload.data && typeof payload.data === 'object') {
+            if (payload.success) {
                 applyConfig(payload.data);
-                state.features.attendance = true;
-                setOnline(true);
-                if (root.getAttribute('data-state') === 'home') {
-                    setActionEnabled(true);
-                }
-                syncQueue('boot');
+                showHome();
+                startHeartbeat();
+
+                /* Warm the engine and pull the gallery in the background so the
+                   first employee to walk up does not wait for a 13 MB model. */
                 ensureEngine().then(function (report) {
-                    if (report.ok) return syncFaceData(false);
+                    if (report.ok) {
+                        return syncFaceData(false);
+                    }
+
                     return false;
                 });
+
                 return true;
             }
 
-            if (isRevokedResponse(payload)) {
-                revokeCredentials(payload.code);
+            var code = payload.code || payload.__status;
+
+            if (code === 'DEVICE_REVOKED' || code === 'DEVICE_INACTIVE' || code === 'CUSTOMER_DISABLED' || code === 'DEVICE_UNAUTHORIZED') {
+                if (code === 'DEVICE_UNAUTHORIZED') {
+                    credentials.clear();
+                    wipeFaceData();
+                    showActivation('اعتبار این دستگاه باطل شده است. کد فعال‌سازی جدید را وارد کنید.', code);
+
+                    return false;
+                }
+
+                wipeFaceData();
+
+                showBlocked(code, payload.message);
+
                 return false;
             }
 
-            // Any transient failure leaves a previously registered kiosk active.
-            setOnline(false);
-            state.features.attendance = true;
-            if (root.getAttribute('data-state') === 'home') setActionEnabled(true);
-            loadCachedGallery();
-            ensureEngine();
-            return true;
+            showActivation(payload.message || 'ارتباط با سرور برقرار نشد.', code);
+
+            return false;
         });
     }
 
@@ -1362,7 +1184,6 @@
             return;
         }
 
-        var token = state.token;
         api('/heartbeat', {
             body: {
                 /* the offset is measured from the previous answer, never invented:
@@ -1372,8 +1193,7 @@
                 app_version: SETUP.version
             }
         }).then(function (payload) {
-            if (!token || state.token !== token) return;
-            if (payload.success && payload.data) {
+            if (payload.success) {
                 setOnline(true);
 
                 if (payload.data && payload.data.server_time) {
@@ -1412,10 +1232,17 @@
                 return;
             }
 
-            if (isRevokedResponse(payload)) {
-                revokeCredentials(payload.code);
-            } else {
-                setOnline(false);
+            setOnline(payload.code !== 'NETWORK_ERROR' ? true : false);
+
+            if (payload.code === 'DEVICE_REVOKED' || payload.code === 'DEVICE_INACTIVE' || payload.code === 'CUSTOMER_DISABLED') {
+                stopHeartbeat();
+                wipeFaceData();
+                showBlocked(payload.code, payload.message);
+            } else if (payload.code === 'DEVICE_UNAUTHORIZED') {
+                stopHeartbeat();
+                credentials.clear();
+                wipeFaceData();
+                showActivation('اعتبار این دستگاه باطل شده است. کد فعال‌سازی جدید را وارد کنید.', payload.code);
             }
         });
     }
@@ -1504,8 +1331,9 @@
 
             setCameraState('guidance', HINTS.guidance);
 
-            /* showCamera starts the loop only after model and gallery load;
-               it will pick up this stream once frames are available. */
+            /* The loop is already running from showCamera() and picks the
+               stream up as soon as the first frames arrive. */
+            startFaceLoop();
         }).catch(function (error) {
             var name = String(error && error.name ? error.name : error);
 
@@ -1685,34 +1513,14 @@
         state.action = action;
         setCameraState('recognizing', HINTS.recognizing);
 
-        var reqId = requestId();
-        state.lastRequestId = reqId;
-
-        var recognitionTimedOut = false;
-        var recognitionTimer = window.setTimeout(function () {
-            if (state.lastRequestId !== reqId) {
-                return;
-            }
-
-            if (state.faceBusy && root.getAttribute('data-camera-state') === 'recognizing') {
-                recognitionTimedOut = true;
-                state.faceBusy = false;
-                state.faceStable = 0;
-                setCameraState('guidance', 'شناسایی زمان‌بر شد؛ لطفاً چهره را دوباره تنظیم کنید.');
-            }
-        }, 8000);
+        var requestId = requestId();
+        state.lastRequestId = requestId;
 
         engine.recognize(el.cameraVideo).then(function (capture) {
-            window.clearTimeout(recognitionTimer);
-
-            if (recognitionTimedOut || state.lastRequestId !== reqId) {
-                return;
-            }
-
             if (!capture.ok) {
                 state.faceBusy = false;
                 state.faceStable = 0;
-                reportOutcome(action, reqId, capture.code, null, capture.message);
+                reportOutcome(action, requestId, capture.code, null, capture.message);
 
                 return;
             }
@@ -1720,7 +1528,7 @@
             var match = engine.match(capture.embedding, gallery.employees);
 
             if (match.decision === 'matched') {
-                reportOutcome(action, reqId, 'FACE_MATCHED', {
+                reportOutcome(action, requestId, 'FACE_MATCHED', {
                     employee_id: match.best.employee_id,
                     sample_index: match.best.sample_index,
                     distance: match.best.distance,
@@ -1734,7 +1542,7 @@
             state.faceStable = 0;
 
             if (match.decision === 'ambiguous') {
-                reportOutcome(action, reqId, 'FACE_MATCH_AMBIGUOUS', {
+                reportOutcome(action, requestId, 'FACE_MATCH_AMBIGUOUS', {
                     distance: match.best ? match.best.distance : null,
                     confidence: match.best ? match.best.similarity : null
                 }, '');
@@ -1742,17 +1550,11 @@
                 return;
             }
 
-            reportOutcome(action, reqId, 'UNKNOWN_FACE', {
+            reportOutcome(action, requestId, 'UNKNOWN_FACE', {
                 distance: match.best ? match.best.distance : null,
                 confidence: match.best ? match.best.similarity : null
             }, '');
         })['catch'](function (error) {
-            window.clearTimeout(recognitionTimer);
-
-            if (recognitionTimedOut || state.lastRequestId !== reqId) {
-                return;
-            }
-
             state.faceBusy = false;
             reportCameraError('RECOGNITION_FAILED', String(error && error.message ? error.message : error));
             showError('engine', 'خطا در تشخیص چهره', 'پردازش تصویر روی این دستگاه انجام نشد. لطفاً دوباره تلاش کنید.', 6000);
@@ -1794,18 +1596,18 @@
         if (!state.online) {
             /* Offline: only a real match may enter the queue - a face that was
                not matched is never turned into a punch. */
-            var storedOffline = enqueueOffline(action, requestId, outcome, extra);
+            enqueueOffline(action, requestId, outcome, extra);
             setOnline(false);
-            finishRecognition(action, outcome, extra, 'offline', localMessage, null, storedOffline);
+            finishRecognition(action, outcome, extra, 'offline', localMessage);
 
             return;
         }
 
         api('/recognition-result', { body: payload }).then(function (response) {
             if (response.code === 'NETWORK_ERROR') {
-                var storedOffline = enqueueOffline(action, requestId, outcome, extra);
+                enqueueOffline(action, requestId, outcome, extra);
                 setOnline(false);
-                finishRecognition(action, outcome, extra, 'offline', localMessage, null, storedOffline);
+                finishRecognition(action, outcome, extra, 'offline', localMessage);
 
                 return;
             }
@@ -1854,6 +1656,9 @@
 
         if (stored) {
             text(el.queueCount, 'در صف ارسال: ' + queue.count());
+            showNotice('ثبت آفلاین',
+                'ارتباط با سرور برقرار نیست؛ ورود/خروج شما در صف ذخیره شد و پس از برقراری ارتباط به‌صورت خودکار ثبت می‌شود.',
+                6000);
         }
 
         return stored;
@@ -1863,57 +1668,11 @@
      * Screen decision for every documented outcome. Nothing is faked: a face
      * that was not matched never reaches the success path.
      */
-    function finishRecognition(action, outcome, extra, mode, localMessage, response, queued) {
+    function finishRecognition(action, outcome, extra, mode, localMessage, response) {
         var code = (response && response.code) || outcome;
 
         if (code === 'FACE_MATCHED' && response && response.data && response.data.employee) {
             submitAttendance(action, response.data);
-
-            return;
-        }
-
-        if (mode === 'offline' && code === 'FACE_MATCHED' && extra && extra.employee_id) {
-            if (!queued) {
-                closeCamera();
-                showError('storage', 'تردد ذخیره نشد', 'حافظه محلی در دسترس نیست یا صف پر است. لطفاً با مسئول مجموعه تماس بگیرید.', 7000);
-                return;
-            }
-
-            var gallery = currentGallery();
-            var localEmployee = null;
-
-            if (gallery && gallery.employees) {
-                for (var index = 0; index < gallery.employees.length; index += 1) {
-                    if (parseInt(gallery.employees[index].employee_id, 10) === parseInt(extra.employee_id, 10)) {
-                        localEmployee = gallery.employees[index];
-                        break;
-                    }
-                }
-            }
-
-            var offlineNow = new Date();
-            var offlineOperation = action === 'entry' ? 'ورود' : 'خروج';
-            var offlineName = localEmployee
-                ? (localEmployee.full_name || ((localEmployee.first_name || '') + ' ' + (localEmployee.last_name || '')).trim())
-                : '';
-
-            closeCamera();
-            renderQueue();
-            showSuccess({
-                title: offlineOperation + ' در صف ارسال ثبت شد',
-                message: 'ارتباط با سرور برقرار نیست؛ پس از اتصال مجدد، تردد به‌صورت خودکار هم‌گام می‌شود.',
-                employee: {
-                    full_name: offlineName,
-                    employee_code: localEmployee ? (localEmployee.employee_code || '') : '',
-                    position: localEmployee ? (localEmployee.position || '') : '',
-                    photo_url: ''
-                },
-                facts: [
-                    { label: 'نوع عملیات', value: offlineOperation },
-                    { label: 'ساعت', value: pad(offlineNow.getHours()) + ':' + pad(offlineNow.getMinutes()) + ':' + pad(offlineNow.getSeconds()) },
-                    { label: 'وضعیت', value: 'در صف ارسال' }
-                ]
-            });
 
             return;
         }
@@ -1925,14 +1684,12 @@
             ambiguous: ['ambiguous', 'شناسایی با اطمینان کافی انجام نشد', 'شناسایی چهره با اطمینان کافی انجام نشد. لطفاً دوباره تلاش کنید.']
         };
 
-        if (isRevokedResponse(response)) {
-            revokeCredentials(code);
-            return;
-        }
-
-        if (code === 'DEVICE_REVOKED' || code === 'DEVICE_INACTIVE' || code === 'CUSTOMER_DISABLED' || code === 'DEVICE_UNAUTHORIZED' || code === 'DEVICE_NOT_FOUND') {
+        if (code === 'DEVICE_REVOKED' || code === 'DEVICE_INACTIVE' || code === 'CUSTOMER_DISABLED' || code === 'DEVICE_UNAUTHORIZED') {
+            stopHeartbeat();
+            wipeFaceData();
             closeCamera();
-            showError('device', 'ارتباط با سرور برقرار نشد', (response && response.message) || 'لطفاً دوباره تلاش کنید.', 6000);
+            showBlocked(code, response && response.message);
+
             return;
         }
 
@@ -2095,16 +1852,9 @@
                     text(el.queueCount, 'در صف ارسال: ' + queue.count());
                 }
 
-                if (stored) {
-                    showSuccess({
-                        title: operation + ' در صف ارسال ثبت شد',
-                        message: 'پس از اتصال مجدد، تردد هم‌گام و توسط سرور بررسی می‌شود.',
-                        employee: employee,
-                        facts: [{ label: 'وضعیت', value: 'در صف ارسال' }]
-                    });
-                } else {
-                    showError('storage', 'تردد ذخیره نشد', 'حافظه محلی در دسترس نیست یا صف پر است. لطفاً با مسئول مجموعه تماس بگیرید.', 7000);
-                }
+                showNotice('ثبت آفلاین',
+                    'ارتباط با سرور قطع شد؛ این ' + operation + ' در صف ذخیره شد و در اولین هم‌گام‌سازی ثبت می‌شود.',
+                    6000);
 
                 return;
             }
@@ -2351,11 +2101,7 @@
             return;
         }
 
-        navigator.serviceWorker.register(SETUP.base + SETUP.sw, { scope: SETUP.base }).then(function () {
-            return navigator.serviceWorker.ready;
-        }).then(function (registration) {
-            if (registration.active) registration.active.postMessage('CACHE_MODELS');
-        }).catch(function () {
+        navigator.serviceWorker.register(SETUP.base + SETUP.sw, { scope: SETUP.base }).catch(function () {
             /* offline shell simply stays unavailable */
         });
     }
@@ -2383,7 +2129,6 @@
                     button.classList.remove('is-pressed');
                 }, 160);
 
-                unlockVoice();
                 openCamera(action);
             });
         });
@@ -2474,16 +2219,6 @@
             el.settingsButton.addEventListener('click', openDrawer);
         }
 
-        if (el.queueClear) {
-            el.queueClear.addEventListener('click', function () {
-                if (!queue.count() || !window.confirm('همه ترددهای ارسال‌نشده برای همیشه حذف می‌شوند. ادامه می‌دهید؟')) return;
-                if (!queue.clearQueue()) {
-                    window.alert('پاک‌سازی صف انجام نشد؛ حافظه دستگاه در دسترس نیست.');
-                }
-                renderQueue();
-            });
-        }
-
         if (el.setSound) {
             el.setSound.addEventListener('change', function () {
                 saveSetting('success_sound', el.setSound.checked);
@@ -2540,16 +2275,9 @@
         });
 
         document.addEventListener('visibilitychange', function () {
-            if (!document.hidden) {
-                if (state.token && (state.status === 'active' || root.getAttribute('data-state') === 'home')) {
-                    setActionEnabled(true);
-                    renderClock();
-                    pushHeartbeat();
-                }
-
-                if (state.status === 'active') {
-                    requestWakeLock();
-                }
+            if (!document.hidden && state.status === 'active') {
+                pushHeartbeat();
+                requestWakeLock();
             }
         });
 
@@ -2616,18 +2344,6 @@
         }
 
         state.token = stored.token;
-        state.status = 'active';
-        setOnline(false); // Until the server has actually answered.
-        var cachedConfig = readCachedConfig();
-        if (cachedConfig) {
-            applyConfig(cachedConfig);
-        }
-        state.features.attendance = true;
-        showHome();
-        setActionEnabled(true);
-        startHeartbeat();
-        loadCachedGallery();
-        ensureEngine();
         loadConfig();
     }
 

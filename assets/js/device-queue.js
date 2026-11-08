@@ -198,9 +198,7 @@
         function write(items) {
             var list = (items || []).slice(-max);
 
-            if (storage.write(list) === false) {
-                return null;
-            }
+            storage.write(list);
             listeners.forEach(function (listener) {
                 listener(list.length);
             });
@@ -229,16 +227,11 @@
                     }
                 }
 
-                // Do not discard older unsent attendance when the queue is full.
-                if (items.length >= max) {
-                    return null;
-                }
                 items.push(row);
-                return write(items) ? row : null;
-            },
+                write(items);
 
-            // Explicit destructive action: callers must confirm with the operator.
-            clearQueue: function () { return write([]) !== null; },
+                return row;
+            },
 
             count: function () {
                 return read().length;
@@ -252,10 +245,7 @@
             applyResults: function (records) {
                 var result = applyResults(read(), records);
 
-                if (!write(result.kept)) {
-                    // Keep the persisted queue until a later successful write.
-                    result.kept = read();
-                }
+                write(result.kept);
 
                 return result;
             },

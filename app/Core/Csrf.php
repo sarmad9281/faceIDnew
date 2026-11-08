@@ -80,13 +80,6 @@ final class Csrf
             return false;
         }
 
-        // Compatibility guard for templates that accidentally embedded the
-        // complete hidden input returned by Csrf::field() as another
-        // input's value: recover the pure hex token before comparing it.
-        if (is_string($token) && preg_match('/value=["\']([a-f0-9]{32,128})["\']/i', $token, $matches)) {
-            $token = $matches[1];
-        }
-
         $known = $_SESSION[self::KEY_TOKEN] ?? '';
 
         if (!is_string($known) || $known === '') {

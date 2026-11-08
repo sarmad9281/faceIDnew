@@ -53,8 +53,7 @@ $employment = [
     </div>
     <div class="row-actions">
         <a class="btn btn-ghost" href="<?= $e($url('/manager/employees')) ?>">فهرست پرسنل</a>
-        <a class="btn btn-ghost" href="<?= $e($url('/manager/employees/' . $id . '/edit')) ?>">ویرایش اطلاعات</a>
-        <a class="btn btn-primary" href="<?= $e($url('/manager/employees/' . $id . '/faces')) ?>">🎥 ثبت چهره با دوربین</a>
+        <a class="btn btn-primary" href="<?= $e($url('/manager/employees/' . $id . '/edit')) ?>">ویرایش اطلاعات</a>
     </div>
 </div>
 
@@ -64,9 +63,8 @@ $employment = [
             <div class="card-head"><h2>ثبت نمونه‌های چهره</h2></div>
 
             <p class="muted small">
-                ثبت نمونه‌ها با <strong>دوربین زنده و داخل همین مرورگر</strong> انجام می‌شود و کیفیت هر نمونه
-                (حضور چهره، اندازه، وضوح و نور) پیش از ذخیره بررسی می‌شود. برای هر پرسنل سه نمونه لازم است
-                تا در دستگاه حضور و غیاب شناسایی شود؛ آپلود دستی فایل وجود ندارد.
+                برای هر پرسنل دقیقاً سه نمونه چهره در نظر گرفته شده است. در این مرحله فقط تصاویر ذخیره می‌شوند؛
+                <strong>موتور تشخیص چهره و تشخیص زنده‌بودن در این سامانه استفاده نمی‌شود</strong> و به مرحله بعد موکول است.
             </p>
 
             <div class="list-row" style="margin-bottom:14px">
@@ -79,10 +77,6 @@ $employment = [
                     <span class="badge badge-ok">کامل — ۳ نمونه ثبت شده</span>
                 <?php endif; ?>
             </div>
-
-            <p style="margin:0 0 14px">
-                <a class="btn btn-primary btn-lg" href="<?= $e($url('/manager/employees/' . $id . '/faces')) ?>">🎥 باز کردن دوربین زنده و ثبت چهره پرسنل</a>
-            </p>
 
             <div class="face-grid">
                 <?php foreach ([1, 2, 3] as $index): ?>
@@ -102,12 +96,24 @@ $employment = [
                                     <input type="hidden" name="sample_index" value="<?= $e($index) ?>">
                                     <button type="submit" class="btn btn-danger btn-sm">حذف</button>
                                 </form>
-                                <a class="btn btn-ghost btn-sm" href="<?= $e($url('/manager/employees/' . $id . '/faces')) ?>">🎥 ثبت مجدد با دوربین</a>
+                                <form method="post" action="<?= $e($url('/manager/employees/face')) ?>" enctype="multipart/form-data" class="inline-form">
+                                    <?= $csrf() ?>
+                                    <input type="hidden" name="employee_id" value="<?= $e($id) ?>">
+                                    <input type="hidden" name="sample_index" value="<?= $e($index) ?>">
+                                    <input type="file" name="sample" accept="image/png,image/jpeg,image/webp" required style="max-width:150px">
+                                    <button type="submit" class="btn btn-ghost btn-sm">جایگزینی</button>
+                                </form>
                             </div>
                         <?php else: ?>
                             <div class="face-empty">ثبت نشده</div>
                             <strong><?= $e(EmployeeFace::slotLabel($index)) ?></strong>
-                            <a class="btn btn-primary btn-sm btn-block" style="margin-top:8px" href="<?= $e($url('/manager/employees/' . $id . '/faces')) ?>">🎥 ثبت نمونه <?= $e($index) ?> با دوربین</a>
+                            <form method="post" action="<?= $e($url('/manager/employees/face')) ?>" enctype="multipart/form-data">
+                                <?= $csrf() ?>
+                                <input type="hidden" name="employee_id" value="<?= $e($id) ?>">
+                                <input type="hidden" name="sample_index" value="<?= $e($index) ?>">
+                                <input type="file" name="sample" accept="image/png,image/jpeg,image/webp" required>
+                                <button type="submit" class="btn btn-primary btn-sm btn-block" style="margin-top:8px">ثبت نمونه <?= $e($index) ?></button>
+                            </form>
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>

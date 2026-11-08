@@ -296,7 +296,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .btn-danger { background: rgba(255, 107, 129, .16); border-color: rgba(255, 107, 129, .4); color: #ffd7de; }
 .btn-ghost { background: rgba(255, 255, 255, .03); }
 .btn-sm { padding: 6px 11px; font-size: .8rem; border-radius: 10px; }
-.btn-lg { padding: 13px 26px; font-size: 1rem; border-radius: 14px; }
 .btn-block { width: 100%; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 

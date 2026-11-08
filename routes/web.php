@@ -23,7 +23,6 @@ use App\Controllers\CustomerController;
 use App\Controllers\DashboardController;
 use App\Controllers\DeviceKioskPageController;
 use App\Controllers\DeviceController;
-use App\Controllers\LandingController;
 use App\Controllers\Manager\ActivityController as ManagerActivityController;
 use App\Controllers\Manager\AttendanceController as ManagerAttendanceController;
 use App\Controllers\Manager\BranchController;
@@ -56,11 +55,6 @@ return static function (Router $router): void {
      * ----------------------------------------------------------------*/
     $router->get('/health', [DashboardController::class, 'health'], [], 'health');
 
-    // Public showcase. Guests see the landing page; the controller itself
-    // hands an existing session to the role dispatcher (manager ->
-    // /dashboard, owner -> /owner, device -> /device).
-    $router->get('/', [LandingController::class, 'index'], [], 'home');
-
     /* -----------------------------------------------------------------
      * Authentication
      * ----------------------------------------------------------------*/
@@ -72,6 +66,8 @@ return static function (Router $router): void {
     /* -----------------------------------------------------------------
      * Authenticated area (any human role)
      * ----------------------------------------------------------------*/
+    $router->get('/', [DashboardController::class, 'home'], ['auth'], 'home');
+
     $router->get('/dashboard', [DashboardController::class, 'manager'],
         ['auth', 'role:manager,supervisor,owner', 'tenant:single'], 'dashboard');
 
@@ -112,22 +108,15 @@ return static function (Router $router): void {
     $router->post('/owner/customers/{uuid}/logo', [OwnerCustomerController::class, 'logo'],
         ['auth', 'owner', 'csrf'], 'owner.customers.logo');
 
-    // Features (both URL shapes are supported: feature-first and the
-    // customer-first links used by the customer/manager screens).
+    // Features
     $router->get('/owner/features', [FeatureController::class, 'index'],
         ['auth', 'owner'], 'owner.features');
     $router->get('/owner/features/{uuid}', [FeatureController::class, 'show'],
         ['auth', 'owner'], 'owner.features.show');
-    $router->get('/owner/customers/{uuid}/features', [FeatureController::class, 'show'],
-        ['auth', 'owner'], 'owner.customers.features');
     $router->post('/owner/features/{uuid}', [FeatureController::class, 'update'],
         ['auth', 'owner', 'csrf'], 'owner.features.update');
-    $router->post('/owner/customers/{uuid}/features', [FeatureController::class, 'update'],
-        ['auth', 'owner', 'csrf'], 'owner.customers.features.update');
     $router->post('/owner/features/{uuid}/toggle', [FeatureController::class, 'toggle'],
         ['auth', 'owner', 'csrf'], 'owner.features.toggle');
-    $router->post('/owner/customers/{uuid}/features/toggle', [FeatureController::class, 'toggle'],
-        ['auth', 'owner', 'csrf'], 'owner.customers.features.toggle');
 
     // Managers
     $router->get('/owner/managers', [OwnerManagerController::class, 'index'],
@@ -279,9 +268,6 @@ return static function (Router $router): void {
     $router->get('/manager/attendance/live', [ManagerAttendanceController::class, 'live'],
         ['auth', 'role:manager,supervisor,owner', 'tenant:single', 'feature:attendance'], 'manager.attendance.live');
 
-    $router->get('/manager/attendance/live-presence', [ManagerAttendanceController::class, 'live'],
-        ['auth', 'role:manager,supervisor,owner', 'tenant:single', 'feature:attendance'], 'manager.attendance.live-presence');
-
     $router->post('/manager/attendance/manual', [ManagerAttendanceController::class, 'manual'],
         ['auth', 'role:manager,owner', 'tenant:single', 'feature:attendance', 'csrf'], 'manager.attendance.manual');
 
@@ -338,11 +324,6 @@ return static function (Router $router): void {
         ['auth', 'role:manager,owner', 'tenant:single', 'csrf'], 'manager.devices.store');
     $router->post('/manager/devices/activate', [ManagerDeviceController::class, 'activate'],
         ['auth', 'role:manager,owner', 'tenant:single', 'csrf'], 'manager.devices.activate');
-    /* Fresh one-time kiosk code for an OWN PENDING device (TASK_FOR_CODER_6
-       #2c). POST only; the controller re-checks the tenant scope, the
-       device.register capability and the pending status. */
-    $router->post('/manager/devices/activation-code', [ManagerDeviceController::class, 'activationCode'],
-        ['auth', 'role:manager,owner', 'tenant:single', 'csrf'], 'manager.devices.activation-code');
     /* Owner only operations: reachable paths, always refused for a manager. */
     $router->post('/manager/devices/reset', [ManagerDeviceController::class, 'reset'],
         ['auth', 'role:manager,owner', 'tenant:single', 'csrf'], 'manager.devices.reset');

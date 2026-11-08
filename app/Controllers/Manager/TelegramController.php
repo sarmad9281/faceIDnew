@@ -66,7 +66,6 @@ final class TelegramController
             'chatId'        => $settings['telegram_chat_id'] ?? '',
             'notifications' => $notifications,
             'configured'    => ($settings['telegram_chat_id'] ?? '') !== '',
-            'sharedGatewayConfigured' => $service->hasSharedGateway(),
             'lastSaved'     => $settings['telegram_updated_at'] ?? null,
             'customer'      => Customer::find($customerId),
             'engine'        => [
@@ -121,6 +120,8 @@ final class TelegramController
             $values[$key] = Input::bool($request->input($key, '0')) === 1 ? '1' : '0';
         }
 
+        $changed = CustomerSetting::putMany($customerId, $values, (int) (Session::userId() ?? 0));
+
         /* ---------- stage 7 engine settings ---------- */
         $engineInput = [
             'chat_id'           => $chatId,
@@ -140,12 +141,6 @@ final class TelegramController
         }
 
         $result = (new TelegramService())->saveSettings($this->actor(), $customerId, $engineInput);
-
-        if (!$result['ok']) {
-            Session::flash('error', $result['message']);
-            return Redirect::response('/manager/telegram');
-        }
-        $changed = CustomerSetting::putMany($customerId, $values, (int) (Session::userId() ?? 0));
 
         AuditLog::record('telegram.settings.update', 'success', 'تنظیمات ربات تلگرام مشتری ذخیره شد.', [
             'changed_keys' => $changed,

@@ -168,7 +168,6 @@ $statusBadge = static fn (string $status): string => $status === 'active' ? 'bad
                             <div class="row-actions">
                                 <a class="btn btn-ghost btn-sm" href="<?= $e($url('/manager/employees/' . $id)) ?>">پرونده</a>
                                 <a class="btn btn-ghost btn-sm" href="<?= $e($url('/manager/employees/' . $id . '/edit')) ?>">ویرایش</a>
-                                <a class="btn btn-primary btn-sm" href="<?= $e($url('/manager/employees/' . $id . '/faces')) ?>">🎥 ثبت چهره</a>
                             </div>
                         </td>
                     </tr>

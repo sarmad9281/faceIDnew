@@ -28,7 +28,6 @@ use App\Models\EmployeeShift;
 use App\Models\Holiday;
 use App\Models\Leave;
 use App\Models\Manager;
-use App\Models\Role;
 use App\Models\Shift;
 use App\Models\User;
 use App\Services\DeviceService;
@@ -132,7 +131,7 @@ final class DashboardController
             'customers'     => $customers,
             'totals'        => $totals,
             'search'        => $search,
-            'roleCounts'    => Role::userCounts(),
+            'roleCounts'    => \App\Models\Role::userCounts(),
             'recentAudit'   => AuditLog::recent(null, 15),
             'error'         => Session::getFlash('error'),
             'success'       => Session::getFlash('success'),
@@ -162,7 +161,7 @@ final class DashboardController
         $payload = [
             'status'     => 'ok',
             'app'        => 'SARMAD Attendance',
-            'version'    => (string) \App\Core\Config::get('app.version', '1.0.1'),
+            'version'    => (string) \App\Core\Config::get('app.version', '1.0.0'),
             'php'        => PHP_VERSION,
             'database'   => Database::connected() ? 'connected' : 'disconnected',
             'tables'     => count(Database::projectTables()),
@@ -172,28 +171,10 @@ final class DashboardController
         return Response::json($payload);
     }
 
-    /**
-     * Role dispatcher for the site root ('/'): every actor is sent to the
-     * one home surface that belongs to its role.
-     *
-     * The owner must NOT land on /dashboard: that route is tenant-scoped
-     * ('tenant:single') and the platform owner belongs to no customer, so
-     * TenantMiddleware answers 403 («حساب کاربری شما به هیچ مشتری‌ای متصل
-     * نیست»). Owners get their platform panel at /owner instead - the same
-     * target AuthService::defaultRedirectFor() already uses after login.
-     *
-     * Exception: during emergency access (impersonation) the owner acts as
-     * the customer manager, and the owner guard blocks /owner until the
-     * mode is left - so while impersonating, /dashboard is correct.
-     */
     public function home(Request $request): Response
     {
         if (Session::isDevice()) {
             return Response::redirect(Url::to('/device'));
-        }
-
-        if (Session::role() === Role::OWNER && !Session::impersonating()) {
-            return Response::redirect(Url::to('/owner'));
         }
 
         return Response::redirect(Url::to('/dashboard'));

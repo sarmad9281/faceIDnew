@@ -32,6 +32,3 @@ Thumbs.db
 *.tmp
 *.bak
 *.swp
-
-# Local JavaScript test dependencies
-/tests/node_modules/

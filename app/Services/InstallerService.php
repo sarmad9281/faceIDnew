@@ -1027,7 +1027,7 @@ final class InstallerService
     public function writeSettings(array $input, int $ownerId = 0): void
     {
         $settings = [
-            'app.version'         => '1.0.1',
+            'app.version'         => '1.0.0',
             'app.timezone'        => (string) ($input['timezone'] ?? 'Asia/Tehran'),
             'app.date_system'     => (string) ($input['date_system'] ?? 'jalali'),
             'app.name'            => (string) ($input['app_name'] ?? 'SARMAD Attendance'),

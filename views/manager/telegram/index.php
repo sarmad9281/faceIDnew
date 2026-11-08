@@ -28,10 +28,6 @@ $settings = $engine['settings'];
         </p>
     </div>
     <div class="row-actions">
-        <?php if (!empty($sharedGatewayConfigured)): ?>
-            <span class="badge">درگاه ارتباطی تلگرام: فعال (سرور خارجی / بدون فیلتر)</span>
-            <small class="muted">درگاه تنظیم شده است؛ اتصال را با پیام آزمایشی بررسی کنید.</small>
-        <?php endif; ?>
         <span class="badge <?= $engine['usable'] ? '' : 'badge-muted' ?>">
             <?= $engine['usable'] ? 'آماده ارسال' : 'غیرفعال / تنظیم‌نشده' ?>
         </span>
@@ -66,7 +62,7 @@ $settings = $engine['settings'];
         <?php endif; ?>
 
         <form method="post" action="<?= $e($url('/manager/telegram')) ?>">
-            <?= $csrf() ?>
+            <input type="hidden" name="_token" value="<?= $csrf() ?>">
             <div class="filters">
                 <label class="field">
                     <span>Bot Token (برای تغییر پر کنید)</span>
@@ -99,23 +95,18 @@ $settings = $engine['settings'];
             <button type="submit" class="btn btn-primary">ذخیره تنظیمات</button>
         </form>
 
-        <?php if (!$engine['hasToken'] || empty($engine['settings']['chat_id'])): ?>
-            <p class="alert alert-warn">لطفاً ابتدا توکن ربات و شناسه چت را ذخیره کنید، سپس پیام آزمایشی ارسال نمایید.</p>
-        <?php else: ?>
-            <p class="muted small">پیام آزمایشی با تنظیمات ذخیره‌شده ارسال می‌شود؛ تغییرات جدید را ابتدا ذخیره کنید.</p>
-        <?php endif; ?>
         <div class="row-actions" style="margin-top:12px">
             <form method="post" action="<?= $e($url('/manager/telegram/test')) ?>">
-                <?= $csrf() ?>
+                <input type="hidden" name="_token" value="<?= $csrf() ?>">
                 <button type="submit" class="btn btn-ghost btn-sm">ارسال پیام آزمایشی</button>
             </form>
             <form method="post" action="<?= $e($url('/manager/telegram/daily')) ?>">
-                <?= $csrf() ?>
+                <input type="hidden" name="_token" value="<?= $csrf() ?>">
                 <input type="hidden" name="date" value="<?= $e(date('Y-m-d')) ?>">
                 <button type="submit" class="btn btn-ghost btn-sm">ارسال گزارش امروز</button>
             </form>
             <form method="post" action="<?= $e($url('/manager/telegram/drain')) ?>">
-                <?= $csrf() ?>
+                <input type="hidden" name="_token" value="<?= $csrf() ?>">
                 <button type="submit" class="btn btn-ghost btn-sm">پردازش صف (Worker)</button>
             </form>
         </div>

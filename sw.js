@@ -6,15 +6,11 @@
      1. /api/ is NEVER cached. Employee data, attendance contracts and the
         device config are personal data; an offline cache would leak them to
         the next person standing at the tablet.
-     2. The REAL device shell (./device, css, js, icons, manifest) is cached,
-        so an already activated tablet can reopen the working kiosk without
-        internet. The static offline page is only a last-resort explanation
-        for a browser that has no cached kiosk shell at all.
-     3. Kiosk navigation requests try the network first and then fall back to
-        the cached REAL kiosk; only if that is unavailable do they use the
-        static offline page. Navigations outside the kiosk are left
-        untouched, so the public site and panels keep the browser's normal
-        offline behaviour instead of showing kiosk copy.
+     2. The device SHELL (offline page, css, js, icons, manifest) is cached, so
+        the tablet still shows a branded kiosk screen without internet.
+     3. Navigation requests try the network first and fall back to the cached
+        offline shell - so a device that lost its connection never shows the
+        browser's "no internet" dinosaur.
      4. Only same-origin GET requests are handled.
      5. Stage 5: the face engine and its model weights are cached as well, so a
         device that loses internet keeps recognising faces with the LOCAL model
@@ -25,20 +21,13 @@
    lives in localStorage and is only attached to requests by the page itself.
    ===================================================================== */
 
-const CACHE = 'sarmad-kiosk-v10';
-// Keep the previous model cache available during upgrades; core installation
-// must not wait for large model downloads on slow mobile networks.
-const PREVIOUS_MODEL_CACHES = ['sarmad-kiosk-v9', 'sarmad-kiosk-v8', 'sarmad-kiosk-v7'];
+const CACHE = 'sarmad-kiosk-v3';
 
-const CORE_SHELL = [
-    './device',
+const SHELL = [
     './device/offline',
     './assets/css/device.css',
-    './assets/js/device-queue.js?v=1.1.0',
-    './assets/js/device.js?v=1.1.0',
-    './assets/audio/entry.mp3?v=1.1.0',
-    './assets/audio/exit.mp3?v=1.1.0',
-    './assets/audio/error.mp3?v=1.1.0',
+    './assets/js/device-queue.js',
+    './assets/js/device.js',
     './assets/vendor/tfjs-1.7.4.min.js',
     './assets/vendor/face-api-0.22.2.min.js',
     './assets/js/face/face-engine.js',
@@ -50,30 +39,16 @@ const CORE_SHELL = [
     './manifest.webmanifest'
 ];
 
-// Warm models only after activation, independently of core installation.
-const MODEL_FILES = [
-    './assets/models/face-api-1.0.0/tiny_face_detector_model-weights_manifest.json',
-    './assets/models/face-api-1.0.0/tiny_face_detector_model-shard1',
-    './assets/models/face-api-1.0.0/ssd_mobilenetv1_model-weights_manifest.json',
-    './assets/models/face-api-1.0.0/ssd_mobilenetv1_model-shard1',
-    './assets/models/face-api-1.0.0/ssd_mobilenetv1_model-shard2',
-    './assets/models/face-api-1.0.0/face_landmark_68_model-weights_manifest.json',
-    './assets/models/face-api-1.0.0/face_landmark_68_model-shard1',
-    './assets/models/face-api-1.0.0/face_recognition_model-weights_manifest.json',
-    './assets/models/face-api-1.0.0/face_recognition_model-shard1',
-    './assets/models/face-api-1.0.0/face_recognition_model-shard2',
-];
-
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE).then((cache) => cache.addAll(CORE_SHELL)).then(() => self.skipWaiting())
+        caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())
     );
 });
 
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys()
-            .then((keys) => Promise.all(keys.filter((key) => key.indexOf('sarmad-kiosk-') === 0 && key !== CACHE && !PREVIOUS_MODEL_CACHES.includes(key)).map((key) => caches.delete(key))))
+            .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
             .then(() => self.clients.claim())
     );
 });
@@ -81,46 +56,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
     if (event.data === 'SKIP_WAITING') {
         self.skipWaiting();
-    } else if (event.data === 'CACHE_MODELS') {
-        // Failures are isolated, so a partial download never prevents install.
-        event.waitUntil(caches.open(CACHE).then((cache) =>
-            Promise.all(MODEL_FILES.map((file) =>
-                cache.match(file).then((cached) => cached || previousModel(file))
-                    .then((cached) => cached || fetch(file))
-                    .then((response) => response && response.ok ? cache.put(file, response.clone()) : null)
-                    .catch(() => null)
-            ))
-        ));
     }
 });
 
-function previousModel(request) {
-    return PREVIOUS_MODEL_CACHES.reduce((promise, name) => promise.then((found) =>
-        found || caches.open(name).then((cache) => cache.match(request))), Promise.resolve(null));
-}
-
 function isApi(url) {
     return url.pathname.indexOf('/api/') !== -1;
-}
-
-function isDeviceNavigation(url) {
-    let scopePath = new URL(self.registration.scope).pathname;
-
-    if (scopePath.slice(-1) !== '/') {
-        scopePath += '/';
-    }
-
-    let relativePath = url.pathname;
-
-    if (relativePath.indexOf(scopePath) === 0) {
-        relativePath = relativePath.slice(scopePath.length);
-    } else {
-        return false;
-    }
-
-    relativePath = relativePath.replace(/\/+$/, '');
-
-    return relativePath === 'device' || relativePath.indexOf('device/') === 0;
 }
 
 self.addEventListener('fetch', (event) => {
@@ -137,24 +77,16 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Kiosk navigations: network first, then the cached REAL kiosk. The
-    // static offline page is only for a browser with no cached kiosk shell.
-    // Other pages are deliberately not intercepted here.
+    // Page navigations: network first, offline shell as the fallback.
     if (request.mode === 'navigate') {
-        if (!isDeviceNavigation(url)) {
-            return;
-        }
-
         event.respondWith(
             fetch(request).catch(() =>
-                caches.open(CACHE).then((cache) => cache.match('./device', { ignoreSearch: true }))
-                    .then((cachedDevice) => cachedDevice || caches.open(CACHE).then((cache) => cache.match('./device/offline', { ignoreSearch: true })))
-                    .then((cached) =>
-                        cached || new Response('آفلاین', {
-                            status: 503,
-                            headers: { 'Content-Type': 'text/html; charset=utf-8' }
-                        })
-                    )
+                caches.match('./device/offline').then((cached) =>
+                    cached || new Response('آفلاین', {
+                        status: 503,
+                        headers: { 'Content-Type': 'text/html; charset=utf-8' }
+                    })
+                )
             )
         );
 
@@ -164,35 +96,27 @@ self.addEventListener('fetch', (event) => {
     // Static shell assets: cache first, then network (and remember it).
     // The face model weights are `.json` manifests plus extension-less shard
     // files, so /assets/models/ is cached by path as well.
-    const cacheable = /\.(css|js|json|png|jpg|jpeg|svg|webmanifest|mp3|woff2?)$/i.test(url.pathname)
+    const cacheable = /\.(css|js|json|png|jpg|jpeg|svg|webmanifest|woff2?)$/i.test(url.pathname)
         || url.pathname.indexOf('/assets/models/') !== -1;
 
     if (!cacheable) {
         return;
     }
 
-    // Ignore version parameters only for the explicit precached files; do not
-    // conflate query-dependent images or other resources.
-    const shellAsset = CORE_SHELL.some((item) => new URL(item, self.registration.scope).pathname === url.pathname);
     event.respondWith(
-        caches.open(CACHE).then((cache) => cache.match(request, { ignoreSearch: shellAsset })).then((cached) => {
+        caches.match(request).then((cached) => {
             if (cached) {
                 return cached;
             }
 
-            const model = url.pathname.indexOf('/assets/models/') !== -1;
-            return (model ? previousModel(request) : Promise.resolve(null)).then((oldModel) => {
-                if (oldModel) {
-                    return oldModel;
+            return fetch(request).then((response) => {
+                if (response && response.ok) {
+                    const copy = response.clone();
+
+                    caches.open(CACHE).then((cache) => cache.put(request, copy));
                 }
-                return fetch(request).then((response) => {
-                    if (response && response.ok) {
-                        const copy = response.clone();
-                        return caches.open(CACHE).then((cache) => cache.put(request, copy))
-                            .catch(() => {}).then(() => response);
-                    }
-                    return response;
-                });
+
+                return response;
             });
         })
     );

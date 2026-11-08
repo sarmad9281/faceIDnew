@@ -41,17 +41,8 @@ final class DeviceService
      * Register a new device inside a customer. The device cannot do
      * anything yet: it is created with status "pending".
      *
-     * The kiosk activates with ONE-TIME activation codes
-     * (DeviceActivationCode), so a freshly registered device leaves with
-     * one of those issued immediately: the single code handed back to the
-     * caller (manager panel flash / API response) is a code that actually
-     * works on /device. Before this, registration only produced the
-     * legacy stage-1 pairing column while activateWithCode() only knew
-     * one-time codes - the code printed in the panel was refused by the
-     * kiosk and a manager-registered device could never be paired.
-     *
      * @param array<string,mixed> $data
-     * @return array{ok:bool, message:string, device?:array<string,mixed>, pairing_code?:string, activation_code?:string, activation?:array<string,mixed>|null}
+     * @return array{ok:bool, message:string, device?:array<string,mixed>}
      */
     public function register(int $customerId, array $data): array
     {
@@ -115,49 +106,18 @@ final class DeviceService
             'registered_by'  => \App\Core\Session::userId(),
         ]);
 
+        $device = Device::find($result['device_id']);
+
         AuditLog::device('device.register', 'success', 'دستگاه جدید ثبت شد و در انتظار فعال‌سازی است.', [
             'device_id'   => $result['device_id'],
             'customer_id' => $customerId,
         ],);
 
-        /*
-         * Issue the one-time activation code right away and hand THAT code
-         * back (once). Issuing stores only a hash, clears the legacy plain
-         * pairing column and is fully audited inside issueActivationCode().
-         * If issuing unexpectedly fails the legacy pairing value is still
-         * returned: activateWithCode() honours it as a fallback while the
-         * device is pending, so the person registering is never left
-         * holding a dead code. The row is re-read afterwards because
-         * issuing changes it (pairing column cleared on purpose).
-         */
-        /*
-         * 24 hours, not the 60-minute default: the manager registers the
-         * device in the panel now and the kiosk on site may only be
-         * switched on hours later (TASK_FOR_CODER_6 #2a).
-         */
-        $activation  = $this->issueActivationCode((int) $result['device_id'], 60 * 24);
-        $handedCode  = (string) $result['pairing_code'];
-        $activationInfo = null;
-
-        if ($activation['ok'] && isset($activation['activation']['code'])) {
-            $activationInfo = $activation['activation'];
-            $handedCode     = (string) $activationInfo['code'];
-        }
-
-        $device = Device::find($result['device_id']);
-
         return [
             'ok'      => true,
             'message' => 'دستگاه ثبت شد و در انتظار فعال‌سازی است.',
             'device'  => $device,
-            /*
-             * Backwards-compatible key: every existing caller flashes or
-             * returns "pairing_code" as the code to type on the device.
-             * It now carries the working one-time activation code.
-             */
-            'pairing_code'    => $handedCode,
-            'activation_code' => $handedCode,
-            'activation'      => $activationInfo,
+            'pairing_code' => $result['pairing_code'],
         ];
     }
 
@@ -295,7 +255,7 @@ final class DeviceService
      * Same check as authenticateToken() but it also says WHY the token was
      * refused, so the API can answer with the documented device code:
      *
-     *   DEVICE_UNAUTHORIZED  - absent / malformed / unknown token
+     *   DEVICE_UNAUTHORIZED  - absent / malformed / unknown / expired token
      *   DEVICE_INACTIVE      - registered but never activated, or suspended
      *   DEVICE_REVOKED       - the owner revoked this device
      *   CUSTOMER_DISABLED    - the customer account is not active
@@ -343,8 +303,9 @@ final class DeviceService
             return $refuse('DEVICE_INACTIVE', 'inactive_device', $device);
         }
 
-        // Kiosk credentials persist until revoked or rotated. Legacy expiry
-        // timestamps must not silently unpair an otherwise active device.
+        if (Device::tokenExpired($device)) {
+            return $refuse('DEVICE_UNAUTHORIZED', 'expired_token', $device);
+        }
 
         // The device's customer must still be active.
         if (!Customer::isActive((int) $device['customer_id'])) {
@@ -587,38 +548,14 @@ final class DeviceService
      * burned, every previous session of that device is revoked and the old
      * token (if any) stops working immediately.
      *
-     * Fallback: when the typed code is unknown to the one-time-code table
-     * it is ALSO tried against the legacy `devices.pairing_code` of a
-     * PENDING device (activateWithPairingCode()). Devices registered
-     * before registration also issued one-time codes only ever received
-     * that pairing value in the panel, and existing pending devices still
-     * carry one - without the fallback those printed codes could never
-     * activate the kiosk. New registrations no longer need it (they get a
-     * real one-time code and their pairing column is cleared), the
-     * fallback is pending-only, honours the 1-hour pairing expiry and
-     * burns the value atomically, so its surface decays to zero.
-     *
      * @param array<string,mixed> $context
-     * @return array{ok:bool, code:string, message:string, token?:string, expires_at?:?string, device?:array<string,mixed>, http?:int}
+     * @return array{ok:bool, code:string, message:string, token?:string, expires_at?:string, device?:array<string,mixed>, http?:int}
      */
     public function activateWithCode(string $plainCode, array $context = []): array
     {
         $verify = DeviceActivationCode::verify($plainCode);
 
         if (!$verify['ok']) {
-            /*
-             * Only an UNKNOWN code may be a pairing code. A recognised
-             * one-time code in a wrong state (used / expired / revoked /
-             * locked) stays authoritative and is refused as before.
-             */
-            if (($verify['code'] ?? '') === 'ACTIVATION_CODE_INVALID') {
-                $pairing = $this->activateWithPairingCode($plainCode, $context);
-
-                if ($pairing !== null) {
-                    return $pairing;
-                }
-            }
-
             $codeRow  = $verify['row'] ?? null;
             $deviceId = $codeRow === null ? null : (int) $codeRow['device_id'];
             $customer = $codeRow === null ? 0 : (int) $codeRow['customer_id'];
@@ -699,127 +636,11 @@ final class DeviceService
             return ['ok' => false, 'code' => 'ACTIVATION_CODE_USED', 'message' => 'این کد فعال‌سازی همین حالا استفاده شده است.', 'http' => 409];
         }
 
-        return $this->completeActivation($deviceId, $customerId, $context, 'activation_code');
-    }
-
-    /**
-     * Legacy pairing-code fallback for activateWithCode().
-     *
-     * Returns null when the typed code is not the live pairing code of a
-     * pending device, so the caller falls through to the normal
-     * "invalid code" handling (attempt accounting, logging, 422) exactly
-     * as before - the fallback never becomes an oracle for codes that
-     * belong to active/disabled/revoked devices. A non-null return is a
-     * definitive answer (success, expired, or suspended customer).
-     *
-     * @param array<string,mixed> $context
-     * @return array{ok:bool, code:string, message:string, token?:string, expires_at?:?string, device?:array<string,mixed>, http?:int}|null
-     */
-    private function activateWithPairingCode(string $plainCode, array $context): ?array
-    {
-        $normalized = DeviceActivationCode::normalize($plainCode);
-
-        if ($normalized === '') {
-            return null;
-        }
-
-        /*
-         * Pairing codes are stored as "NNNNNN-NNNN" but typed on a numeric
-         * keypad, so accept every shape the kiosk can send: as typed, as a
-         * bare digit string, and re-dashed the way they were generated
-         * (Security::deviceCode()).
-         */
-        $candidates = [trim($plainCode), $normalized];
-
-        if (preg_match('/^[0-9]{10}$/', $normalized) === 1) {
-            $candidates[] = substr($normalized, 0, 6) . '-' . substr($normalized, 6, 4);
-        }
-
-        $device = null;
-
-        foreach (array_unique($candidates) as $candidate) {
-            if ($candidate === '') {
-                continue;
-            }
-
-            $device = Device::findBy('pairing_code', strtoupper($candidate));
-
-            if ($device !== null) {
-                break;
-            }
-        }
-
-        if ($device === null) {
-            return null;
-        }
-
-        // Only a device still waiting for its first activation may be
-        // claimed this way; anything else keeps the generic refusal.
-        if ((string) $device['status'] !== Device::STATUS_PENDING) {
-            return null;
-        }
-
-        $deviceId   = (int) $device['id'];
-        $customerId = (int) $device['customer_id'];
-
-        if (!empty($device['pairing_expires_at']) && strtotime((string) $device['pairing_expires_at']) < time()) {
-            DeviceLog::record('device.activation.failed', 'warning', 'کد جفت‌سازی منقضی شده است.', $deviceId, $customerId, [
-                'code' => 'ACTIVATION_CODE_EXPIRED',
-                'via'  => 'pairing_code',
-            ]);
-
-            return [
-                'ok'      => false,
-                'code'    => 'ACTIVATION_CODE_EXPIRED',
-                'message' => 'کد جفت‌سازی منقضی شده است. از پنل مدیریت دستگاه را دوباره ثبت یا کد فعال‌سازی جدید بگیرید.',
-                'http'    => 409,
-            ];
-        }
-
-        if (!Customer::isActive($customerId)) {
-            return ['ok' => false, 'code' => 'CUSTOMER_DISABLED', 'message' => 'حساب این مجموعه فعال نیست.', 'http' => 403];
-        }
-
-        /*
-         * Single use, same idea as DeviceActivationCode::consume(): the
-         * conditional UPDATE is the lock. Only the request that actually
-         * clears the pairing value may continue, and activate() then
-         * keeps it cleared - a pairing code can never be replayed.
-         */
-        $claimed = (int) Database::run(
-            'UPDATE `' . Database::table('devices') . '` SET `pairing_code` = NULL, `pairing_expires_at` = NULL'
-            . ' WHERE `id` = ? AND `pairing_code` = ? AND `status` = ?',
-            [$deviceId, (string) $device['pairing_code'], Device::STATUS_PENDING]
-        )->rowCount();
-
-        if ($claimed !== 1) {
-            return ['ok' => false, 'code' => 'ACTIVATION_CODE_USED', 'message' => 'این کد جفت‌سازی همین حالا استفاده شده است.', 'http' => 409];
-        }
-
-        return $this->completeActivation($deviceId, $customerId, $context, 'pairing_code');
-    }
-
-    /**
-     * Shared success tail of every code based activation: issue the long
-     * lived token ONCE, flip the device active, revoke every previous
-     * session, stamp platform / last-seen and write the audit + device
-     * log entries. $via records which credential proved the device
-     * ("activation_code" | "pairing_code") without changing the shape of
-     * the answer the kiosk receives.
-     *
-     * @param array<string,mixed> $context
-     * @return array{ok:bool, code:string, message:string, token:string, expires_at:?string, device:array<string,mixed>|null}
-     */
-    private function completeActivation(int $deviceId, int $customerId, array $context, string $via): array
-    {
         $days  = (int) Config::get('security.device_token_days', 365);
         $token = Device::issueToken($deviceId, $days);
 
         Device::activate($deviceId);
-        DeviceSession::revokeAllForDevice(
-            $deviceId,
-            $via === 'pairing_code' ? 'activated_with_pairing_code' : 'activated_with_code'
-        );
+        DeviceSession::revokeAllForDevice($deviceId, 'activated_with_code');
 
         Database::run(
             'UPDATE `' . Database::table('devices') . '` SET `platform` = COALESCE(?, `platform`),'
@@ -831,23 +652,16 @@ final class DeviceService
             ]
         );
 
-        $logMessage = $via === 'pairing_code'
-            ? 'دستگاه با کد جفت‌سازی فعال شد.'
-            : 'دستگاه با کد یک‌بارمصرف فعال شد.';
-
-        DeviceLog::record('device.activation.success', 'info', $logMessage, $deviceId, $customerId, [
+        DeviceLog::record('device.activation.success', 'info', 'دستگاه با کد یک‌بارمصرف فعال شد.', $deviceId, $customerId, [
             'prefix'   => $token['prefix'],
             'platform' => (string) ($context['platform'] ?? ''),
-            'via'      => $via,
         ]);
 
         AuditLog::record(
             'device.activation.success',
             'success',
-            $via === 'pairing_code'
-                ? 'دستگاه با کد جفت‌سازی (فال‌بک) فعال شد.'
-                : 'دستگاه با کد فعال‌سازی یک‌بارمصرف فعال شد.',
-            ['device_id' => $deviceId, 'prefix' => $token['prefix'], 'via' => $via],
+            'دستگاه با کد فعال‌سازی یک‌بارمصرف فعال شد.',
+            ['device_id' => $deviceId, 'prefix' => $token['prefix']],
             'device',
             'device',
             $deviceId,
@@ -922,10 +736,7 @@ final class DeviceService
             ],
             'features' => [
                 'branches'   => \feature_enabled($customerId, 'branches'),
-                // A device that can authenticate as an active kiosk is, by
-                // definition, an attendance terminal. Never let a missing
-                // or stale feature row grey out its entry/exit actions.
-                'attendance' => true,
+                'attendance' => \feature_enabled($customerId, 'attendance'),
                 'employees'  => \feature_enabled($customerId, 'employees'),
             ],
             'settings'           => DeviceSetting::allTyped($deviceId),

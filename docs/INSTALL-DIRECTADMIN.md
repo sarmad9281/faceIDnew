@@ -228,27 +228,6 @@ MariaDB برای «کاربر ناموجود» و «رمز غلط» هر دو ه
 4. اگر رمز روی سرور تغییر کرده باشد، `config/config.php` قدیمی کار نمی‌کند: رمز را در آن
    فایل هم به‌روز کنید یا نصب‌کننده را دوباره اجرا کنید (بعد از حذف `storage/installed.lock`).
 
-### صفحه دوربین کار نمی‌کند و خطای 403 روی فایل‌های `*-weights_manifest.json` می‌بینید
-
-تشخیص چهره قبل از شروع دوربین، مانیفست مدل‌ها را از
-`assets/models/face-api-1.0.0/*-weights_manifest.json` می‌خواند. `.htaccess` ریشه پسوند
-`json` را در کل پروژه می‌بندد (برای محافظت از `composer.json` و امثال آن) و فایل
-**`assets/.htaccess`** همین یک پوشه استاتیک را دوباره باز می‌کند. اگر بعد از آپلود دستی
-فایل‌ها این فایل جا افتاده باشد، همه صفحات دوربین با خطای
-`failed to fetch: (403) ... weights_manifest.json` متوقف می‌شوند. راستی‌آزمایی روی هاست:
-
-```bash
-# باید 200 بدهد:
-curl -s -o /dev/null -w '%{http_code}\n' https://sarmadfallahzadeh.ir/assets/models/face-api-1.0.0/tiny_face_detector_model-weights_manifest.json
-# این‌ها باید همچنان 403 بدهند (سخت‌گیری ریشه سر جایش است):
-curl -s -o /dev/null -w '%{http_code}\n' https://sarmadfallahzadeh.ir/composer.json
-curl -s -o /dev/null -w '%{http_code}\n' https://sarmadfallahzadeh.ir/config/config.sample.php
-```
-
-اگر اولی هنوز 403 است: وجود `assets/.htaccess` و فعال بودن `AllowOverride` برای دامنه را
-بررسی کنید. توجه: دوربین (`getUserMedia`) فقط روی **HTTPS** (یا `localhost`) کار می‌کند؛
-روی آدرس `http://` مرورگر اصلاً اجازه دوربین نمی‌دهد و این ربطی به سرور ندارد.
-
 ### نصب در زیرپوشه `/public_html/attendance/`
 
 پروژه مسیر پایه را خودکار تشخیص می‌دهد؛ کافی است ZIP در همان پوشه استخراج شود و

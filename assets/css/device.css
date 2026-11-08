@@ -60,7 +60,6 @@ body.kiosk {
     user-select: none;
     -webkit-user-select: none;
     overflow: hidden;
-    height: 100dvh;
     min-height: 100dvh;
 }
 
@@ -97,11 +96,7 @@ body.kiosk {
 .k-shell {
     display: flex;
     flex-direction: column;
-    height: 100dvh;
     min-height: 100dvh;
-    max-height: 100dvh;
-    box-sizing: border-box;
-    overflow: hidden;
     padding: 20px clamp(16px, 3vw, 44px) 18px;
     gap: 16px;
 }
@@ -139,13 +134,6 @@ body.kiosk {
     border: 1px solid var(--k-line-strong);
     flex: 0 0 auto;
     letter-spacing: 1px;
-}
-
-/* The logo <img> starts hidden; .k-logo's display:grid would otherwise
-   override the browser's [hidden] rule and paint an empty purple tile. */
-.k-logo[hidden],
-[hidden] {
-    display: none !important;
 }
 
 .k-brand-text {
@@ -259,10 +247,6 @@ body.kiosk {
     display: flex;
     align-items: baseline;
     gap: 10px;
-    /* Time is always HH:MM:SS left-to-right, even inside the RTL page:
-       without this the flex row puts the seconds first (34: 04:34). */
-    direction: ltr !important;
-    justify-content: center;
 }
 
 .k-clock-seconds {
@@ -410,15 +394,6 @@ body.kiosk {
     display: flex;
 }
 
-/*
- * The shell JS toggles banners (activation errors, status notes) with
- * `is-open`. Without this rule the toggle is a no-op: the element keeps
- * display:none and the message stays invisible while it IS in the DOM.
- */
-.k-banner.is-open {
-    display: flex;
-}
-
 .k-banner-queue {
     margin-inline-start: auto;
     font-weight: 700;
@@ -434,10 +409,6 @@ body.kiosk {
     z-index: 40;
     display: none;
     flex-direction: column;
-    /* Short/portrait screens must SCROLL the overlay, never clip its
-       controls off the bottom of the screen. */
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
     background: radial-gradient(900px 520px at 50% -10%, rgba(79, 140, 255, 0.16), transparent 60%), rgba(4, 7, 14, 0.96);
     backdrop-filter: blur(6px);
     padding: clamp(14px, 2.4vh, 30px);
@@ -872,12 +843,6 @@ body.kiosk {
 
 /* Touch keypad (activation code entry) */
 .k-keypad {
-    /*
-     * A grid inside an RTL page lays its first row right-to-left, which
-     * renders the digits as "3 2 1". Keypads are physical objects: force
-     * LTR so every row reads 1 2 3 / 4 5 6 / 7 8 9 / ⌫ 0 پاک.
-     */
-    direction: ltr;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
@@ -1072,41 +1037,9 @@ body.kiosk {
     display: grid;
     place-items: center;
     padding: 26px 18px;
-    /* A phone running the kiosk must be able to scroll down to the last
-       key + the submit button instead of losing them below the fold. */
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-/*
- * On the kiosk page the activation screen is an OVERLAY
- * (<section class="k-overlay k-activate" id="kiosk-activation">) and the
- * shell JS shows/hides it purely by toggling .is-open. The bare
- * .k-activate rule above has the SAME specificity as .k-overlay but
- * comes LATER in this file, so its display:grid beat the overlay's
- * display:none: after a successful activation, only(null)/showHome()
- * removed .is-open yet the activation card stayed on screen forever,
- * covering the home screen (clock + punch buttons) while the server
- * already showed the device activated and online.
- *
- * These two higher-specificity rules restore the show/hide contract for
- * the OVERLAY use only: hidden by default, grid when open. The
- * standalone offline shell (.k-activate without .k-overlay, cached by
- * sw.js) is deliberately NOT matched - it must always render.
- */
-.k-overlay.k-activate {
-    display: none;
-}
-
-.k-overlay.k-activate.is-open {
-    display: grid;
 }
 
 .k-activate-card {
-    /* auto margins centre the card when it fits and collapse to 0 when
-       it does not, so an overflowing activation card always scrolls from
-       its TOP (a plain centered grid/flex item would clip its head). */
-    margin: auto;
     width: min(620px, 100%);
     border-radius: 32px;
     border: 1px solid var(--k-line-strong);
@@ -1174,136 +1107,26 @@ body.kiosk {
    Small screens (phone sized kiosk)
    ------------------------------------------------------------------- */
 @media (max-width: 760px) {
-    .k-shell {
-        padding: max(8px, env(safe-area-inset-top)) clamp(10px, 3vw, 18px) max(8px, env(safe-area-inset-bottom));
-        gap: clamp(6px, 1.2dvh, 12px);
+    .k-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .k-action {
+        min-height: clamp(110px, 20vh, 190px);
+    }
+
+    .k-clock-time {
+        font-size: clamp(46px, 13vh, 110px);
     }
 
     .k-top {
-        flex: 0 0 auto;
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-        padding: 6px 10px;
-        gap: 8px;
-    }
-    .k-brand { gap: 8px; flex: 1 1 auto; }
-    .k-logo { width: 40px; height: 40px; border-radius: 12px; font-size: 17px; }
-    .k-business { font-size: clamp(14px, 2.2dvh, 18px); }
-    .k-branch, .k-pill#k-device-pill { display: none; }
-    .k-top-meta { flex: 0 0 auto; margin-inline-start: auto; gap: 6px; flex-wrap: nowrap; }
-    .k-pill { padding: 4px 8px; font-size: 11px; gap: 5px; }
-    .k-top-meta .k-btn { padding: 6px 8px; font-size: 11px; }
-    .k-clock { flex: 1 1 auto; min-height: 0; justify-content: center; padding: 4px 0; gap: 4px; }
-    .k-clock-time { font-size: clamp(38px, 8.5dvh, 60px); }
-    .k-clock-date { font-size: clamp(12px, 1.8dvh, 16px); gap: 8px; }
-    .k-actions { flex: 0 0 auto; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-bottom: 0; }
-    .k-action { min-height: clamp(80px, 14dvh, 110px); padding: 8px 10px; border-radius: 16px; gap: 6px; }
-    .k-action .k-action-icon { width: clamp(28px, 4.5dvh, 36px); height: clamp(28px, 4.5dvh, 36px); }
-    .k-action .k-action-label { font-size: clamp(20px, 3dvh, 26px); }
-    .k-action .k-action-hint { display: none; }
-    .k-banner { flex: 0 0 auto; padding: 6px 8px; font-size: 11px; gap: 6px; }
-    .k-footer { flex: 0 0 auto; font-size: 10px; gap: 4px; }
-}
-
-/* Small landscape viewports must remain usable rather than clipping buttons. */
-@media (max-height: 600px) {
-    .k-shell { overflow-y: auto; overscroll-behavior: contain; }
-}
-@media (max-height: 580px) {
-    .k-clock { display: none; }
-}
-
-/*
- * Phone-width kiosk (the activation screen is the critical one): shrink
- * the card, logo, input and every key so the whole flow - including the
- * submit button - fits without hunting, and scrolls as a last resort.
- */
-@media (max-width: 600px) {
-    .k-overlay {
-        padding: 12px;
-        gap: 10px;
+        flex-direction: column;
+        align-items: flex-start;
     }
 
-    .k-activate {
-        padding: 14px 10px;
-    }
-
-    /* Phone width: the open activation overlay lays out as flex
-       (column, from .k-overlay). The card's margin:auto still centres
-       it when it fits and collapses to 0 when it must scroll. */
-    .k-overlay.k-activate.is-open {
-        display: flex;
-    }
-
-    .k-activate-card {
-        width: 100%;
-        border-radius: 20px;
-        padding: 20px 14px;
-        gap: 12px;
-    }
-
-    .k-activate-logo {
-        width: 60px;
-        height: 60px;
-        border-radius: 18px;
-        font-size: 22px;
-    }
-
-    .k-activate-card h1 {
-        font-size: 20px;
-    }
-
-    .k-activate-card p {
-        font-size: 13px;
-        line-height: 1.6;
-    }
-
-    .k-input {
-        min-height: 56px;
-        padding: 10px 12px;
-        font-size: 20px;
-    }
-
-    .k-keypad {
-        gap: 8px;
-        width: min(340px, 100%);
-    }
-
-    .k-key {
-        min-height: 50px;
-        border-radius: 14px;
-        font-size: 20px;
-    }
-
-    .k-btn-lg {
-        width: 100%;
-        min-height: 60px;
-        padding: 14px 22px;
-        font-size: 17px;
-    }
-}
-
-/* Short screens (landscape phones): compress vertically as well. */
-@media (max-height: 640px) {
-    .k-activate-card {
-        gap: 10px;
-        padding: 16px 14px;
-    }
-
-    .k-activate-logo {
-        width: 56px;
-        height: 56px;
-        border-radius: 18px;
-        font-size: 20px;
-    }
-
-    .k-key {
-        min-height: 46px;
-    }
-
-    .k-input {
-        min-height: 52px;
+    .k-top-meta {
+        margin-inline-start: 0;
+        justify-content: flex-start;
     }
 }
 

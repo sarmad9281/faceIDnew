@@ -7,10 +7,6 @@
  *   - start the initial registration of a new device (limited flow)
  *   - complete the pairing (activate) of a device of his own customer, which
  *     shows the device token exactly once - that is the registration
- *   - issue a fresh one-time KIOSK activation code for an own PENDING device
- *     (TASK_FOR_CODER_6): registration already hands one out, this is the
- *     "the code expired / was lost" path - still pending-only, because a
- *     re-activation code for a live kiosk would rotate its token (owner only)
  *
  * What a manager may NOT do (owner only, enforced in the routes AND here):
  *   - reset a device registration / tokens (device.reset)
@@ -133,9 +129,7 @@ final class DeviceController
         $message = $result['message'];
 
         if (!empty($result['pairing_code'])) {
-            // register() issues a real one-time kiosk activation code and
-            // returns it under the legacy pairing_code key - say what it is.
-            $message .= ' کد فعال‌سازی کیوسک: ' . (string) $result['pairing_code'] . ' (یک‌بارمصرف، ۲۴ ساعت اعتبار — روی دستگاه وارد کنید)';
+            $message .= ' کد جفت‌سازی: ' . (string) $result['pairing_code'];
         }
 
         Session::flash('success', $message);
@@ -185,61 +179,6 @@ final class DeviceController
         ]);
 
         Session::flash('success', $result['message']);
-
-        return Redirect::response('/manager/devices');
-    }
-
-    /**
-     * Issue a fresh one-time kiosk activation code for an OWN PENDING
-     * device and flash it exactly once (TASK_FOR_CODER_6 #2c). Issuing
-     * revokes the device's previous open codes, so an old printed code
-     * can never outlive this click. Pending-only on purpose: for an
-     * already active kiosk a new code would be a token rotation, which
-     * stays an owner capability (reset / rotate in the owner panel).
-     */
-    public function activationCode(Request $request): Response
-    {
-        $customerId = TenantContext::requireCustomerId();
-
-        if (($denied = Capability::check($request, 'device.register')) !== null) {
-            return $denied;
-        }
-
-        $deviceId = (int) $request->int('device_id', 0);
-        $device   = Device::findScoped($deviceId, $customerId);
-
-        if ($device === null) {
-            AuditLog::denied('تلاش برای صدور کد فعال‌سازی دستگاه خارج از مشتری', [
-                'device_id'   => $deviceId,
-                'customer_id' => $customerId,
-            ]);
-
-            Session::flash('error', 'دستگاه یافت نشد.');
-
-            return Redirect::response('/manager/devices');
-        }
-
-        if ((string) $device['status'] !== Device::STATUS_PENDING) {
-            Session::flash('error', 'کد فعال‌سازی فقط برای دستگاه «در انتظار فعال‌سازی» صادر می‌شود. برای دستگاه فعال، ریست فقط از پنل مالک سامانه انجام می‌شود.');
-
-            return Redirect::response('/manager/devices');
-        }
-
-        $result = $this->devices->issueActivationCode($deviceId, 60 * 24, (int) (Session::userId() ?? 0));
-
-        if (!$result['ok']) {
-            Session::flash('error', $result['message']);
-
-            return Redirect::response('/manager/devices');
-        }
-
-        Session::flash(
-            'success',
-            'کد فعال‌سازی یک‌بارمصرف «' . (string) $device['name'] . '»: '
-            . $result['activation']['code']
-            . ' — معتبر تا ' . $result['activation']['expires_at']
-            . ' (یک بار روی کیوسک قابل استفاده است، سپس باطل می‌شود).'
-        );
 
         return Redirect::response('/manager/devices');
     }

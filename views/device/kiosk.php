@@ -327,14 +327,13 @@
 
         <p class="k-lock-note">
             <span aria-hidden="true">🔒</span>
-            <span>تنظیمات اصلی، توکن و اختصاص شعبه دستگاه فقط از پنل مدیریت سرمد قابل تغییر است.</span>
+            <span>
+                توکن دستگاه، شعبه، فعال/غیرفعال بودن دستگاه و تغییر مشتری فقط از پنل مالک قابل انجام است و روی این
+                دستگاه نمایش داده نمی‌شود. خروج از حالت کیوسک یا حذف اعتبار محلی، دستگاه را به حالت «فعال‌سازی» برمی‌گرداند
+                و برای استفاده دوباره به کد فعال‌سازی جدید از مالک نیاز است.
+            </span>
         </p>
 
-        <div id="k-queue-tools" hidden>
-            <p>صف آفلاین: <strong id="k-queue-settings-count">0</strong> رویداد در انتظار</p>
-            <button type="button" class="k-btn k-btn-danger" id="k-queue-clear">پاک‌سازی صف آفلاین</button>
-            <p>فقط مسئول دستگاه: این کار همه رویدادهای ارسال‌نشده را برای همیشه حذف می‌کند.</p>
-        </div>
         <button type="button" class="k-btn k-btn-danger k-btn-lg" id="k-forget">حذف اعتبار محلی این دستگاه</button>
     </div>
 </aside>

@@ -24,7 +24,7 @@ return [
      * ----------------------------------------------------------------*/
     'app' => [
         'name'        => 'SARMAD Attendance',
-        'version'     => '1.0.1',
+        'version'     => '1.0.0',
         // 'production' | 'local'   (local => verbose errors, never online)
         'env'         => 'production',
         'debug'       => false,
@@ -36,29 +36,6 @@ return [
         'key'         => 'CHANGE_ME_GENERATED_BY_INSTALLER',
         // Force https for generated links / cookies. null = auto detect.
         'force_https' => null,
-    ],
-
-    /* -----------------------------------------------------------------
-     * Public landing page contact channels (shown on GET /)
-     *
-     * Preferred source: /owner/settings in the owner panel
-     * (`platform.support_phone`, `platform.instagram`,
-     * `platform.whatsapp`, `platform.telegram`). The values below are
-     * only a backwards-compatible fallback for installations that already
-     * configured the landing page here. Empty/invalid channels are not
-     * rendered; the landing page has no on-site message form.
-     *   phone         : dialable number, e.g. +98... (used for tel: links)
-     *   phone_display : optional prettier label for the number
-     *   instagram     : handle or full https://www.instagram.com/... link
-     *   whatsapp      : number or full https://wa.me/... link
-     *   telegram      : username (with or without @) or full https://t.me/...
-     * ----------------------------------------------------------------*/
-    'landing' => [
-        'phone'         => '',
-        'phone_display' => '',
-        'instagram'     => '',
-        'whatsapp'      => '',
-        'telegram'      => '',
     ],
 
     /* -----------------------------------------------------------------
@@ -113,8 +90,7 @@ return [
         'csrf_lifetime'        => 7200,
         // Trust X-Forwarded-For (only if the site really sits behind a proxy)
         'trust_proxy'          => false,
-        // Device tokens persist until revoked/rotated; retained for old configs.
-        // Heartbeat timeout is in seconds.
+        // Device API token lifetime (days) & heartbeat timeout (seconds)
         'device_token_days'    => 365,
         'device_offline_after' => 300,
     ],
@@ -190,13 +166,6 @@ return [
      * timestamp is never trusted as the record time - for offline events
      * it is stored separately (device_event_at), validated and clamped.
      * ----------------------------------------------------------------*/
-    // Optional trusted public Telegram gateway/proxy. The gateway sees the
-    // bot token and messages. These settings apply to every customer.
-    'telegram' => [
-        'api_base_url' => 'https://api.telegram.org',
-        'proxy' => '', // e.g. socks5://proxy.example.com:1080 (no credentials)
-    ],
-
     'attendance' => [
         // Multiplier applied to overtime minutes when a report needs the
         // "paid" amount. 1.0 = overtime counts like normal work.

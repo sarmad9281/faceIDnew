@@ -44,9 +44,9 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$WITH_CONFIG" -eq 1 ]; then
-    NAME="sarmad-attendance-v1.0.1-directadmin-private.zip"
+    NAME="sarmad-attendance-v1.0.0-directadmin-private.zip"
 else
-    NAME="sarmad-attendance-v1.0.1.zip"
+    NAME="sarmad-attendance-v1.0.0.zip"
 fi
 [ -n "$OUT" ] || OUT="$ROOT/release/$NAME"
 mkdir -p "$(dirname "$OUT")"
@@ -85,8 +85,6 @@ cd "$ROOT"
 EXCLUDES=(
     ".git/*" ".git*"
     "release/*"
-    "TASK_FOR_CODER*.md"
-    "tests/node_modules/*"
     "storage/installed.lock"
     "storage/logs/*.log"
     "storage/cache/*.json"
@@ -121,24 +119,10 @@ need "install/index.php"
 need "sql/attendance_install.sql"
 need "config/config.sample.php"
 need ".htaccess"
-# The camera screens fetch the face-api weight manifests (*.json) from
-# assets/models at runtime: assets/.htaccess re-grants those static
-# types (the root .htaccess denies *.json project-wide). Shipping a
-# package without it - or without the manifests - breaks every camera
-# page with HTTP 403 on Apache/DirectAdmin.
-need "assets/.htaccess"
-need "assets/audio/entry.mp3"
-need "assets/audio/exit.mp3"
-need "assets/audio/error.mp3"
-need "assets/models/face-api-1.0.0/tiny_face_detector_model-weights_manifest.json"
-need "assets/models/face-api-1.0.0/face_landmark_68_model-weights_manifest.json"
-need "assets/models/face-api-1.0.0/face_recognition_model-weights_manifest.json"
-need "assets/models/face-api-1.0.0/face_recognition_model-shard1"
 forbid_re '^project-source/' "package wraps everything in a project-source/ folder"
 forbid_re '^\./'              "package entries start with ./"
 forbid "storage/installed.lock"
 forbid ".git/config"
-forbid_re '^TASK_FOR_CODER.*\.md$' "internal task files must not be shipped"
 forbid_re '^release/' "a previous release ZIP was packed inside this one"
 forbid_re '\.log$' "log files in the package"
 
