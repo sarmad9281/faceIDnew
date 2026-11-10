@@ -361,10 +361,34 @@ node tests/device_qr_test.js
 docs/patches/patch-stage23.zip
 ```
 
-- محتوای بسته **همهٔ فایل‌های کامل این تسک** است با مسیرهای **نسبت به ریشهٔ پروژه**؛ هیچ
-  پوشهٔ اضافه‌ای داخل زیپ نیست و `vendor/`, `config/config.php`, `uploads/`, `storage/` و
-  `node_modules` **هرگز** در بسته نیستند.
-- مشخصات بسته (حجم و `sha256`) پس از ساخت، در همین سند و در بدنهٔ PR نوشته می‌شود؛ با
-  `sha256sum docs/patches/patch-stage23.zip` مقایسه کنید.
+- محتوای بسته **۲۵ فایل کامل** این تسک است (۸ فایل تازه + ۱۷ فایل تغییریافته) با مسیرهای
+  نسبت به ریشهٔ پروژه؛ هیچ پوشهٔ اضافه‌ای داخل زیپ نیست:
+
+  ```
+  README.md                                   app/Controllers/Manager/PayrollController.php
+  app/Controllers/Manager/TelegramController.php  app/Models/CustomerSetting.php
+  app/Models/PayrollProfile.php               app/Models/Shift.php
+  app/Services/AttendanceCalculator.php       app/Services/AttendanceEngine.php
+  app/Services/MigrationService.php           app/Services/PayrollCalculator.php
+  app/Services/PayrollExportService.php       app/Services/PayrollService.php
+  app/Services/ShiftResolver.php              app/Services/TelegramScheduler.php
+  app/Support/Dbf.php                         app/Support/Encoding.php
+  config/config.sample.php                    docs/STAGE23.md
+  routes/web.php                              tests/stage23_insurance_bank_test.js
+  tests/stage23_night_shift_test.js           tests/stage23_telegram_daily_test.js
+  views/manager/payroll/index.php             views/manager/shifts/index.php
+  views/manager/telegram/index.php
+  ```
+
+- مشخصات بسته برای راستی‌آزمایی پس از دانلود: **166,988 بایت**،
+  `sha256 = b928d46f424aeb9b0194c6943b2c3a00ae80ee2b0a64857008c5344eeec09e63`
+  (با `sha256sum docs/patches/patch-stage23.zip` مقایسه کنید).
+- هر ۲۵ فایلِ داخل بسته با `git show 07ecf44:<file>` بایت‌به‌بایت مقایسه و یکسان تأیید شد
+  (`07ecf44` = کامیتِ کدِ تسک ۲۳)؛ هیچ‌کدام از `vendor/`, `config/config.php`, `uploads/`,
+  `storage/`, `node_modules` و `docs/patches/` داخل بسته نیست.
+- تنها تفاوتِ مورد انتظار: کپیِ `docs/STAGE23.md` **داخل بسته** همان نسخهٔ کامیتِ کد است و
+  طبیعتاً این بخشِ «مشخصات بسته» را ندارد — چون `sha256` بسته تنها **پس از** ساخته‌شدنِ خودِ
+  بسته قابل محاسبه است (وگرنه هر بار با به‌روزرسانی سند، هشِ سندِ داخل بسته عوض می‌شد و
+  راستی‌آزمایی بی‌معنا می‌ماند). بقیهٔ ۲۴ فایل کاملاً یکسان‌اند.
 - در دایرکت‌ادمین در همان پوشهٔ سایت اکسترکت کنید و «Overwrite» را تأیید کنید، سپس
   `php tools/migrate.php`.
