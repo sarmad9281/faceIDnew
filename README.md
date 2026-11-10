@@ -135,13 +135,17 @@ node tests/stage22_security_seo_test.js # 226 بررسی روی فایل‌ها�
 node tests/stage23_insurance_bank_test.js # 421 بررسی: چیدمان SSO + بایت‌های dBASE III
 node tests/stage23_telegram_daily_test.js #  95 بررسی: اسامی در پیام + پیش‌نمایش بدون ارسال
 node tests/stage23_night_shift_test.js    # 112 بررسی: تاریخ درست punch شبانه + closeDay
+
+# تست کنتراست کادر پیش‌نمایش و برچسب شمسیِ کادرهای تاریخ (تسک ۲۴)
+node tests/stage24_jalali_date_hint_test.js # 108 بررسی: کنتراست WCAG + تقویم شمسی زنده
 ```
 
 جزئیات تسک ۲۰ (قالب بارکد، برند فقط‌مالک، مسیر آفلاین) در `docs/STAGE20.md`، جزئیات
 تسک ۲۱ (مهار صلب لوگو، کارت ۸۰ میلی‌متری، `?v=1.2.1`) در `docs/STAGE21.md`، جزئیات
-تسک ۲۲ (هدرهای امنیتی A+، `robots.txt`، سئو و ARIA لندینگ) در `docs/STAGE22.md` و جزئیات
+تسک ۲۲ (هدرهای امنیتی A+، `robots.txt`، سئو و ARIA لندینگ) در `docs/STAGE22.md`، جزئیات
 تسک ۲۳ (دیسکت حق بیمهٔ تأمین اجتماعی، فایل پرداخت بانک، گزارش روزانهٔ تلگرام با اسامی و
-شیفت شبانه) در `docs/STAGE23.md` آمده است.
+شیفت شبانه) در `docs/STAGE23.md` و جزئیات تسک ۲۴ (کنتراست کادر پیش‌نمایش تلگرام و برچسب
+شمسیِ زندهٔ همهٔ کادرهای تاریخ) در `docs/STAGE24.md` آمده است.
 
 ---
 

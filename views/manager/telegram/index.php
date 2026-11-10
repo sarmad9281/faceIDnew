@@ -17,6 +17,7 @@
  */
 
 use App\Support\Jalali;
+use App\Support\JalaliHint;
 
 $settings = $engine['settings'];
 ?>
@@ -142,7 +143,7 @@ $settings = $engine['settings'];
             <div class="filters">
                 <label class="field">
                     <span>تاریخ پیش‌نمایش</span>
-                    <input type="date" name="preview_date" class="ltr" value="<?= $e((string) ($dailyPreview['date'] ?? date('Y-m-d'))) ?>">
+                    <input type="date" name="preview_date" class="ltr" value="<?= $e((string) ($dailyPreview['date'] ?? date('Y-m-d'))) ?>"><?= JalaliHint::render(($dailyPreview['date'] ?? date('Y-m-d'))) ?>
                 </label>
                 <div class="field"><button type="submit" class="btn btn-ghost btn-block">نمایش پیش‌نمایش</button></div>
             </div>
@@ -176,7 +177,17 @@ $settings = $engine['settings'];
                 <?php endif; ?>
             </h3>
 
-            <pre dir="rtl" class="ltr-reset" style="white-space:pre-wrap;background:var(--surface-2,#f6f7f9);border:1px solid var(--border,#e3e6ea);border-radius:8px;padding:10px;margin-top:6px;font-family:inherit;font-size:.86rem;line-height:1.9"><?= $e((string) ($dailyPreview['message'] ?? '')) ?></pre>
+            <?php /* STAGE 24 - contrast fix. This box asked for --surface-2 and
+                       --border, which NO stylesheet of this project defines, so the
+                       light fallbacks (#f6f7f9 / #e3e6ea) always won while the text
+                       inherited the dark theme's near-white --m-text: white on
+                       white. The real tokens are the --m-* ones from manager.css and
+                       the fallbacks are dark now too, so the box stays readable even
+                       when the stylesheet is cached from an older release or fails to
+                       load: 13.5:1 with the tokens, 14.4:1 with the fallbacks, both
+                       AAA. "ltr-reset" was invented as well and defined nowhere, so
+                       it is gone. */ ?>
+            <pre dir="rtl" style="white-space:pre-wrap;overflow-wrap:anywhere;background:var(--m-surface-2,#151b30);color:var(--m-text,#e8ecf8);border:1px solid var(--m-line-strong,rgba(255,255,255,.16));border-radius:var(--m-radius-sm,12px);padding:12px 14px;margin-top:6px;font-family:inherit;font-size:.86rem;line-height:1.9"><?= $e((string) ($dailyPreview['message'] ?? '')) ?></pre>
 
             <p class="muted small" style="margin-top:8px">
                 این متن همان چیزی است که Cron در ساعت تعیین‌شده یا دکمه «ارسال فوری گزارش امروز به تلگرام» می‌فرستد.

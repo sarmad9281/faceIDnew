@@ -12,6 +12,7 @@
  */
 
 use App\Support\Jalali;
+use App\Support\JalaliHint;
 
 $years = [];
 foreach ($holidays as $holiday) {
@@ -38,7 +39,7 @@ $years[$filters['year']] = $filters['year'];
             <label class="field"><span>عنوان *</span><input type="text" name="title" maxlength="150" required placeholder="مثلاً تعطیلی رسمی"></label>
             <label class="field">
                 <span>تاریخ *</span>
-                <input type="date" name="holiday_date" class="ltr" required value="<?= $e(date('Y-m-d')) ?>">
+                <input type="date" name="holiday_date" class="ltr" required value="<?= $e(date('Y-m-d')) ?>"><?= JalaliHint::render(date('Y-m-d')) ?>
                 <span class="field-hint">تاریخ میلادی؛ معادل شمسی در فهرست نمایش داده می‌شود.</span>
             </label>
             <?php if ($branchesEnabled): ?>
@@ -102,7 +103,7 @@ $years[$filters['year']] = $filters['year'];
                                         <?= $csrf() ?>
                                         <input type="hidden" name="holiday_id" value="<?= $e($holiday['id']) ?>">
                                         <input type="text" name="title" value="<?= $e($holiday['title']) ?>" class="input" style="width:130px">
-                                        <input type="date" name="holiday_date" value="<?= $e($holiday['holiday_date']) ?>" class="input ltr" style="width:140px">
+                                        <input type="date" name="holiday_date" value="<?= $e($holiday['holiday_date']) ?>" class="input ltr" style="width:140px"><?= JalaliHint::render($holiday['holiday_date'], true) ?>
                                         <input type="hidden" name="branch_id" value="<?= $e($holiday['branch_id'] ?? 0) ?>">
                                         <input type="hidden" name="is_recurring_yearly" value="<?= !empty($holiday['is_recurring_yearly']) ? '1' : '0' ?>">
                                         <input type="hidden" name="is_active" value="<?= !empty($holiday['is_active']) ? '1' : '0' ?>">

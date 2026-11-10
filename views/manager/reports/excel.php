@@ -13,6 +13,7 @@
  */
 
 use App\Models\Employee;
+use App\Support\JalaliHint;
 
 $link = static function (string $type, bool $withEmployee = false) use ($filters, $e, $url): string {
     return $e($url('/manager/reports/export?' . http_build_query(array_filter([
@@ -45,8 +46,8 @@ $link = static function (string $type, bool $withEmployee = false) use ($filters
     </div>
     <form method="get" action="<?= $e($url('/manager/reports/excel')) ?>">
         <div class="filters">
-            <label class="field"><span>از تاریخ</span><input type="date" name="date_from" class="ltr" value="<?= $e($filters['date_from']) ?>"></label>
-            <label class="field"><span>تا تاریخ</span><input type="date" name="date_to" class="ltr" value="<?= $e($filters['date_to']) ?>"></label>
+            <label class="field"><span>از تاریخ</span><input type="date" name="date_from" class="ltr" value="<?= $e($filters['date_from']) ?>"><?= JalaliHint::render($filters['date_from']) ?></label>
+            <label class="field"><span>تا تاریخ</span><input type="date" name="date_to" class="ltr" value="<?= $e($filters['date_to']) ?>"><?= JalaliHint::render($filters['date_to']) ?></label>
             <div class="field"><button type="submit" class="btn btn-primary btn-block">اعمال بازه</button></div>
         </div>
     </form>
