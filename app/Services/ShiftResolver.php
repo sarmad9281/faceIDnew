@@ -22,6 +22,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\Config;
 use App\Core\Database;
 use App\Models\EmployeeShift;
 
@@ -54,6 +55,76 @@ final class ShiftResolver
         );
 
         return $row === null ? null : $row;
+    }
+
+    /**
+     * Which attendance DATE a punch belongs to - the night shift fix.
+     *
+     * resolve() answers "which shift does this person have on date X". A punch
+     * at 02:10 is a different question: the calendar date is tomorrow, but the
+     * person is still inside yesterday's 20:00→06:00 shift. Attributing that
+     * punch to the calendar date produced two wrong rows at once:
+     *
+     *   - the new day got an entry with no exit (and a huge early-leave value),
+     *   - the real shift day was left with nothing and counted as absent.
+     *
+     * This method looks at the PREVIOUS day first. When that day's shift crosses
+     * midnight and its window - extended by the shift's own grace and by
+     * `attendance.night_shift_grace_minutes` - still covers the moment, the punch
+     * belongs to that previous date. Otherwise the calendar date wins, exactly as
+     * before, so a normal day shift is never affected.
+     *
+     * The returned shift is the shift OF THE RESOLVED DATE, so the caller writes
+     * one consistent row (date + shift + snapshot) without a second query.
+     *
+     * @return array{date:string,shift:array<string,mixed>|null,crossed:bool,reason:string}
+     */
+    public static function resolveForMoment(int $employeeId, int $customerId, string $dateTime, string $calendarDate = ''): array
+    {
+        $normalised = AttendanceCalculator::normalizeDateTime($dateTime);
+
+        if ($normalised === null) {
+            $normalised = date('Y-m-d H:i:s');
+        }
+
+        $calendar = $calendarDate !== '' ? $calendarDate : substr($normalised, 0, 10);
+        $previous = date('Y-m-d', strtotime($calendar . ' -1 day'));
+
+        if ($previous === false || $employeeId <= 0 || $customerId <= 0) {
+            return ['date' => $calendar, 'shift' => self::resolve($employeeId, $customerId, $calendar), 'crossed' => false, 'reason' => 'calendar'];
+        }
+
+        $nightShift = self::resolve($employeeId, $customerId, $previous);
+
+        if ($nightShift !== null) {
+            $window = AttendanceCalculator::window($nightShift, $previous);
+
+            if ((bool) $window['crosses']) {
+                $grace = max(
+                    (int) Config::get('attendance.night_shift_grace_minutes', 120),
+                    (int) ($nightShift['early_leave_grace_minutes'] ?? 0)
+                );
+
+                $limit = strtotime((string) $window['end'] . ' +' . $grace . ' minutes');
+                $moment = strtotime($normalised);
+
+                if ($limit !== false && $moment !== false && $moment <= $limit) {
+                    return [
+                        'date'    => $previous,
+                        'shift'   => $nightShift,
+                        'crossed' => true,
+                        'reason'  => 'night_shift',
+                    ];
+                }
+            }
+        }
+
+        return [
+            'date'    => $calendar,
+            'shift'   => self::resolve($employeeId, $customerId, $calendar),
+            'crossed' => false,
+            'reason'  => $nightShift === null ? 'no_previous_shift' : 'window_closed',
+        ];
     }
 
     /**

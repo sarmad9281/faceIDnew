@@ -29,6 +29,27 @@ final class PayrollProfile extends Model
         'uuid', 'customer_id', 'employee_id', 'pay_type', 'base_amount', 'hourly_rate',
         'overtime_rate', 'deficit_rate', 'penalty_amount', 'benefits_amount', 'currency',
         'is_active', 'notes', 'created_by',
+        /* stage 23 - identity data for the SSO insurance diskette and the
+           IBAN / account data for the bank payment file. These columns only
+           exist after a migration run, so every writer passes them through
+           PayrollService::saveProfile() which drops the ones the database does
+           not have yet. */
+        'insurance_no', 'insurance_job_code', 'father_name', 'birth_date', 'id_number',
+        'id_place', 'id_issue_date', 'gender', 'nationality', 'iban', 'bank_name',
+        'account_number', 'insurance_end_date',
+    ];
+
+    /**
+     * The stage 23 insurance / bank columns. A writer uses this list to skip
+     * the fields that a not-yet-migrated database does not have, instead of
+     * failing the whole save with an unknown column error.
+     *
+     * @return array<int,string>
+     */
+    public const INSURANCE_COLUMNS = [
+        'insurance_no', 'insurance_job_code', 'father_name', 'birth_date', 'id_number',
+        'id_place', 'id_issue_date', 'gender', 'nationality', 'iban', 'bank_name',
+        'account_number', 'insurance_end_date',
     ];
 
     public static function typeLabel(?string $type): string

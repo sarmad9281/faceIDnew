@@ -367,6 +367,16 @@ return static function (Router $router): void {
         ['auth', 'role:manager,owner', 'tenant:single', 'feature:payroll', 'csrf'], 'manager.payroll.finalize');
     $router->post('/manager/payroll/revise', [ManagerPayrollController::class, 'revise'],
         ['auth', 'role:manager,owner', 'tenant:single', 'feature:payroll', 'csrf'], 'manager.payroll.revise');
+    /* Stage 23: the social security diskette (DSKKAR00 / DSKWOR00 as .dbf and as
+       the officially allowed comma separated TEXT) and the bank payment file
+       (xlsx / csv). Both are plain downloads, so they carry no CSRF token; the
+       workshop settings behind them do. */
+    $router->post('/manager/payroll/insurance', [ManagerPayrollController::class, 'insurance'],
+        ['auth', 'role:manager,owner', 'tenant:single', 'feature:payroll', 'csrf'], 'manager.payroll.insurance');
+    $router->get('/manager/payroll/diskette', [ManagerPayrollController::class, 'diskette'],
+        ['auth', 'role:manager,owner', 'tenant:single', 'feature:payroll'], 'manager.payroll.diskette');
+    $router->get('/manager/payroll/bank-file', [ManagerPayrollController::class, 'bankFile'],
+        ['auth', 'role:manager,owner', 'tenant:single', 'feature:payroll'], 'manager.payroll.bank');
 
     /* --- Telegram (feature: telegram) --- */
     $router->get('/manager/telegram', [ManagerTelegramController::class, 'index'],

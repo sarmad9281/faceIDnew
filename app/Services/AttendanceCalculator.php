@@ -69,6 +69,9 @@ final class AttendanceCalculator
     public const FLAG_MANUAL = 'manual_correction';
     public const FLAG_OFFLINE = 'offline_synced';
     public const FLAG_CLOCK_SKEW = 'clock_skew';
+    /** Stage 23: the exit was written by the engine because the session stayed
+        open long past the end of its shift (a forgotten punch), not by a punch. */
+    public const FLAG_AUTO_CLOSED = 'auto_closed';
 
     /**
      * The status of one record = its primary state; the flags carry every

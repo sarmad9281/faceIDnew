@@ -202,6 +202,42 @@ final class Shift extends Model
     }
 
     /**
+     * The window of a shift as a reader can not misread it (stage 23).
+     *
+     * "20:00 - 06:00" reads like a negative span to anybody who does not know
+     * the shift crosses midnight - and that is exactly the ambiguity that made
+     * a night punch look like a wrong day. So a crossing shift is written as
+     * "۲۰:۰۰ ← ۰۶:۰۰ (روز بعد)" and a normal one as "۰۸:۰۰ ← ۱۶:۰۰".
+     *
+     * `crosses_midnight` is honoured when it is set, and the times decide on
+     * their own when it is not (end <= start), the same rule
+     * AttendanceCalculator::window() uses.
+     *
+     * @param array<string,mixed> $shift
+     */
+    public static function windowLabel(array $shift): string
+    {
+        $start = self::timeLabel($shift['start_time'] ?? '');
+        $end   = self::timeLabel($shift['end_time'] ?? '');
+
+        $crosses = (int) ($shift['crosses_midnight'] ?? 0) === 1
+            || self::timeMinutes($shift['end_time'] ?? '00:00') <= self::timeMinutes($shift['start_time'] ?? '00:00');
+
+        return $start . ' ← ' . $end . ($crosses ? ' (روز بعد)' : '');
+    }
+
+    /**
+     * Does this shift end on the next calendar day?
+     *
+     * @param array<string,mixed> $shift
+     */
+    public static function isNightShift(array $shift): bool
+    {
+        return (int) ($shift['crosses_midnight'] ?? 0) === 1
+            || self::timeMinutes($shift['end_time'] ?? '00:00') <= self::timeMinutes($shift['start_time'] ?? '00:00');
+    }
+
+    /**
      * Validates a "HH:MM" time coming from a form.
      */
     public static function isValidTime(string $value): bool

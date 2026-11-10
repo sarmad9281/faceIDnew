@@ -235,6 +235,20 @@ return [
         'payroll_default_work_hours' => 8,
         'payroll_overtime_multiplier' => 1.5,
 
+        // Stage 23 - night shifts.
+        //
+        // A punch after midnight belongs to the shift that started the evening
+        // before, as long as that shift crosses midnight and its window (plus
+        // this grace) still covers the moment. 120 minutes covers a shift that
+        // ends at 06:00 and a person who punches out at 07:30.
+        'night_shift_grace_minutes' => 120,
+        //
+        // A session that is still open this long after the end of its shift is
+        // a forgotten exit punch: the engine closes it with the end of the
+        // window (flagged `auto_closed`) so the next entry is not refused with
+        // "ورود شما قبلاً ثبت شده است". 0 disables the automatic close.
+        'stale_session_grace_minutes' => 120,
+
         // Jalali display in the panel (the database keeps a real DATE).
         'display_calendar'  => 'jalali',
     ],
