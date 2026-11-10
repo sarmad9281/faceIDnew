@@ -1,4 +1,7 @@
 <?php
+
+use App\Support\Jalali;
+
 /**
  * Owner - customer detail page: identity, managers, devices, features,
  * subscription, employees and recent audit, all in one screen.
@@ -70,7 +73,7 @@ $enabledFeatures = array_values(array_filter($features, static fn (array $f): bo
     <div class="o-kpi <?= $daysLeft !== null && $daysLeft <= 7 ? 'is-warn' : 'is-ok' ?>">
         <span class="o-kpi-label">روزهای باقی‌مانده اشتراک</span>
         <span class="o-kpi-value"><?= $e($daysLeft === null ? '∞' : $daysLeft) ?></span>
-        <span class="o-kpi-extra"><span>انقضا: <b><?= $e($customer['subscription_expire_date'] ?? '—') ?></b></span></span>
+        <span class="o-kpi-extra"><span>انقضا: <b><?= $e(Jalali::date($customer['subscription_expire_date'] ?? '')) ?></b></span></span>
     </div>
 </div>
 
@@ -84,7 +87,7 @@ $enabledFeatures = array_values(array_filter($features, static fn (array $f): bo
             <div><span>آدرس</span><strong><?= $e($customer['address'] ?? '—') ?></strong></div>
             <div><span>منطقه زمانی</span><strong class="o-ltr"><?= $e($customer['timezone']) ?></strong></div>
             <div><span>تقویم</span><strong><?= $e($customer['date_system'] === 'jalali' ? 'شمسی' : 'میلادی') ?></strong></div>
-            <div><span>تاریخ ایجاد</span><strong><?= $e($customer['created_at']) ?></strong></div>
+            <div><span>تاریخ ایجاد</span><strong><?= $e(Jalali::dateTime($customer['created_at'])) ?></strong></div>
             <div><span>پلن / پلن‌اشتراک</span><strong><?= $e(\App\Models\Subscription::planTitles()[$customer['plan_name'] ?? 'trial'] ?? ($customer['plan_name'] ?? '—')) ?></strong></div>
             <div><span>سقف پرسنل / دستگاه</span><strong><?= $e($customer['max_employees']) ?> / <?= $e($customer['max_devices']) ?></strong></div>
             <div><span>شناسه یکتا</span><strong class="o-ltr"><?= $e($uuid) ?></strong></div>
@@ -208,8 +211,8 @@ $enabledFeatures = array_values(array_filter($features, static fn (array $f): bo
         <div class="o-kv">
             <div><span>پلن</span><strong><?= $e($subscription['plan_name'] ?? ($customer['plan_name'] ?? '—')) ?></strong></div>
             <div><span>وضعیت</span><strong><?= $e(\App\Models\Subscription::statusTitles()[$subStatus] ?? $subStatus) ?></strong></div>
-            <div><span>شروع</span><strong><?= $e($subscription['start_date'] ?? ($customer['subscription_start_date'] ?? '—')) ?></strong></div>
-            <div><span>پایان</span><strong><?= $e($subscription['expire_date'] ?? ($customer['subscription_expire_date'] ?? '—')) ?></strong></div>
+            <div><span>شروع</span><strong><?= $e(Jalali::date($subscription['start_date'] ?? ($customer['subscription_start_date'] ?? ''))) ?></strong></div>
+            <div><span>پایان</span><strong><?= $e(Jalali::date($subscription['expire_date'] ?? ($customer['subscription_expire_date'] ?? ''))) ?></strong></div>
         </div>
 
         <div class="o-table-wrap o-mt">
@@ -218,11 +221,11 @@ $enabledFeatures = array_values(array_filter($features, static fn (array $f): bo
                 <tbody>
                 <?php foreach ($subHistory as $row): ?>
                     <tr>
-                        <td class="o-small"><?= $e($row['created_at']) ?></td>
+                        <td class="o-small"><?= $e(Jalali::dateTime($row['created_at'])) ?></td>
                         <td><?= $e($row['plan_name']) ?></td>
                         <td><span class="o-badge"><?= $e(\App\Models\Subscription::statusTitles()[(string) $row['status']] ?? $row['status']) ?></span></td>
-                        <td class="o-ltr"><?= $e($row['start_date'] ?? '—') ?></td>
-                        <td class="o-ltr"><?= $e($row['expire_date'] ?? '—') ?></td>
+                        <td class="o-ltr"><?= $e(Jalali::date($row['start_date'] ?? '')) ?></td>
+                        <td class="o-ltr"><?= $e(Jalali::date($row['expire_date'] ?? '')) ?></td>
                         <td class="o-small"><?= $e($row['actor_name'] ?? '—') ?></td>
                     </tr>
                 <?php endforeach; ?>
@@ -245,7 +248,7 @@ $enabledFeatures = array_values(array_filter($features, static fn (array $f): bo
             <ul class="o-timeline">
                 <?php foreach ($audit as $row): ?>
                     <li>
-                        <span class="o-time"><?= $e($row['created_at']) ?></span>
+                        <span class="o-time"><?= $e(Jalali::dateTime($row['created_at'])) ?></span>
                         <span class="o-what">
                             <strong><?= $e(\App\Services\AuditService::titleFor((string) ($row['action'] ?? \App\Services\AuditService::actionFor((string) $row['event'])))) ?></strong>
                             <small><?= $e($row['description'] ?? '') ?> — <?= $e($row['actor_label'] ?? '') ?></small>

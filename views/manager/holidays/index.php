@@ -12,7 +12,6 @@
  */
 
 use App\Support\Jalali;
-use App\Support\JalaliHint;
 
 $years = [];
 foreach ($holidays as $holiday) {
@@ -39,8 +38,7 @@ $years[$filters['year']] = $filters['year'];
             <label class="field"><span>عنوان *</span><input type="text" name="title" maxlength="150" required placeholder="مثلاً تعطیلی رسمی"></label>
             <label class="field">
                 <span>تاریخ *</span>
-                <input type="date" name="holiday_date" class="ltr" required value="<?= $e(date('Y-m-d')) ?>"><?= JalaliHint::render(date('Y-m-d')) ?>
-                <span class="field-hint">تاریخ میلادی؛ معادل شمسی در فهرست نمایش داده می‌شود.</span>
+                <input type="text" data-shamsi="1" name="holiday_date" class="ltr" required value="<?= Jalali::today() ?>">
             </label>
             <?php if ($branchesEnabled): ?>
                 <label class="field">
@@ -87,13 +85,12 @@ $years[$filters['year']] = $filters['year'];
         <?php else: ?>
             <div class="table-wrap">
                 <table class="table">
-                    <thead><tr><th>عنوان</th><th>تاریخ شمسی</th><th>تاریخ میلادی</th><th>شعبه</th><th>تکرار</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                    <thead><tr><th>عنوان</th><th>تاریخ</th><th>شعبه</th><th>تکرار</th><th>وضعیت</th><th>عملیات</th></tr></thead>
                     <tbody>
                     <?php foreach ($holidays as $holiday): ?>
                         <tr>
                             <td><?= $e($holiday['title']) ?><small><?= $e($holiday['description'] ?? '') ?></small></td>
                             <td><span class="badge badge-info"><?= $e(Jalali::date($holiday['holiday_date'])) ?></span></td>
-                            <td class="ltr small"><?= $e($holiday['holiday_date']) ?></td>
                             <td><?= $e($holiday['branch_name'] ?? 'همه شعب') ?></td>
                             <td><?= !empty($holiday['is_recurring_yearly']) ? 'سالانه' : '—' ?></td>
                             <td><span class="badge <?= !empty($holiday['is_active']) ? 'badge-ok' : 'badge-muted' ?>"><?= !empty($holiday['is_active']) ? 'فعال' : 'غیرفعال' ?></span></td>
@@ -103,7 +100,7 @@ $years[$filters['year']] = $filters['year'];
                                         <?= $csrf() ?>
                                         <input type="hidden" name="holiday_id" value="<?= $e($holiday['id']) ?>">
                                         <input type="text" name="title" value="<?= $e($holiday['title']) ?>" class="input" style="width:130px">
-                                        <input type="date" name="holiday_date" value="<?= $e($holiday['holiday_date']) ?>" class="input ltr" style="width:140px"><?= JalaliHint::render($holiday['holiday_date'], true) ?>
+                                        <input type="text" data-shamsi="1" name="holiday_date" value="<?= $e(Jalali::input($holiday['holiday_date'])) ?>" class="input ltr" style="width:140px">
                                         <input type="hidden" name="branch_id" value="<?= $e($holiday['branch_id'] ?? 0) ?>">
                                         <input type="hidden" name="is_recurring_yearly" value="<?= !empty($holiday['is_recurring_yearly']) ? '1' : '0' ?>">
                                         <input type="hidden" name="is_active" value="<?= !empty($holiday['is_active']) ? '1' : '0' ?>">

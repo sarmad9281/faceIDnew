@@ -319,16 +319,19 @@ final class PayrollController
             'insurance_no'        => (string) $request->input('insurance_no', ''),
             'insurance_job_code'  => (string) $request->input('insurance_job_code', ''),
             'father_name'         => (string) $request->input('father_name', ''),
-            'birth_date'          => (string) $request->input('birth_date', ''),
+            /* STAGE 25 - the payroll profile's date fields are rendered by the
+               same Jalali picker as every other date in the panel, so they are
+               converted on the way in like the rest. */
+            'birth_date'          => Input::date($request->input('birth_date', '')) ?? '',
             'id_number'           => (string) $request->input('id_number', ''),
             'id_place'            => (string) $request->input('id_place', ''),
-            'id_issue_date'       => (string) $request->input('id_issue_date', ''),
+            'id_issue_date'       => Input::date($request->input('id_issue_date', '')) ?? '',
             'gender'              => (string) $request->input('gender', ''),
             'nationality'         => (string) $request->input('nationality', ''),
             'iban'                => (string) $request->input('iban', ''),
             'bank_name'           => (string) $request->input('bank_name', ''),
             'account_number'      => (string) $request->input('account_number', ''),
-            'insurance_end_date'  => (string) $request->input('insurance_end_date', ''),
+            'insurance_end_date'  => Input::date($request->input('insurance_end_date', '')) ?? '',
         ];
 
         $result = (new PayrollService())->saveProfile($this->actor($request), $customerId, $employeeId, $input);

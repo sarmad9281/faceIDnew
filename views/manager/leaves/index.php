@@ -15,7 +15,6 @@
 use App\Models\Employee;
 use App\Models\Leave;
 use App\Support\Jalali;
-use App\Support\JalaliHint;
 
 $statusBadge = static function (string $status): string {
     switch ($status) {
@@ -64,8 +63,8 @@ $statusBadge = static function (string $status): string {
                     <?php endforeach; ?>
                 </select>
             </label>
-            <label class="field"><span>از تاریخ *</span><input type="date" name="start_date" class="ltr" required value="<?= $e(date('Y-m-d')) ?>"><?= JalaliHint::render(date('Y-m-d')) ?></label>
-            <label class="field"><span>تا تاریخ *</span><input type="date" name="end_date" class="ltr" required value="<?= $e(date('Y-m-d')) ?>"><?= JalaliHint::render(date('Y-m-d')) ?></label>
+            <label class="field"><span>از تاریخ *</span><input type="text" data-shamsi="1" name="start_date" class="ltr" required value="<?= Jalali::today() ?>"></label>
+            <label class="field"><span>تا تاریخ *</span><input type="text" data-shamsi="1" name="end_date" class="ltr" required value="<?= Jalali::today() ?>"></label>
             <label class="field">
                 <span>وضعیت</span>
                 <select name="status">
@@ -77,7 +76,6 @@ $statusBadge = static function (string $status): string {
         </div>
         <label class="field"><span>توضیح</span><textarea name="description" maxlength="500"></textarea></label>
         <button type="submit" class="btn btn-primary">ثبت مرخصی</button>
-        <span class="muted small">تاریخ‌ها میلادی ثبت می‌شوند و در فهرست به‌صورت شمسی نمایش داده می‌شوند.</span>
     </form>
 </section>
 <?php endif; ?>
@@ -106,8 +104,8 @@ $statusBadge = static function (string $status): string {
                     <?php endforeach; ?>
                 </select>
             </label>
-            <label class="field"><span>از تاریخ</span><input type="date" name="date_from" class="ltr" value="<?= $e($filters['date_from']) ?>"><?= JalaliHint::render($filters['date_from']) ?></label>
-            <label class="field"><span>تا تاریخ</span><input type="date" name="date_to" class="ltr" value="<?= $e($filters['date_to']) ?>"><?= JalaliHint::render($filters['date_to']) ?></label>
+            <label class="field"><span>از تاریخ</span><input type="text" data-shamsi="1" name="date_from" class="ltr" value="<?= $e(Jalali::input($filters['date_from'])) ?>"></label>
+            <label class="field"><span>تا تاریخ</span><input type="text" data-shamsi="1" name="date_to" class="ltr" value="<?= $e(Jalali::input($filters['date_to'])) ?>"></label>
             <div class="field"><button type="submit" class="btn btn-primary btn-block">اعمال فیلتر</button></div>
         </div>
     </form>
@@ -148,8 +146,8 @@ $statusBadge = static function (string $status): string {
                                     <input type="hidden" name="employee_id" value="<?= $e($leave['employee_id']) ?>">
                                     <input type="hidden" name="leave_type" value="<?= $e($leave['leave_type']) ?>">
                                     <input type="hidden" name="status" value="<?= $e($leave['status']) ?>">
-                                    <input type="date" name="start_date" class="input ltr" style="width:135px" value="<?= $e($leave['start_date']) ?>"><?= JalaliHint::render($leave['start_date'], true) ?>
-                                    <input type="date" name="end_date" class="input ltr" style="width:135px" value="<?= $e($leave['end_date']) ?>"><?= JalaliHint::render($leave['end_date'], true) ?>
+                                    <input type="text" data-shamsi="1" name="start_date" class="input ltr" style="width:135px" value="<?= $e(Jalali::input($leave['start_date'])) ?>">
+                                    <input type="text" data-shamsi="1" name="end_date" class="input ltr" style="width:135px" value="<?= $e(Jalali::input($leave['end_date'])) ?>">
                                     <button type="submit" class="btn btn-ghost btn-sm">ویرایش بازه</button>
                                 </form>
                                 <form method="post" action="<?= $e($url('/manager/leaves/delete')) ?>" class="inline-form" data-confirm="این مرخصی حذف شود؟">

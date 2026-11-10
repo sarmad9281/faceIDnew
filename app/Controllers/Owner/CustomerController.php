@@ -31,6 +31,7 @@ use App\Services\AuditService;
 use App\Services\FeatureService;
 use App\Services\UploadService;
 use App\Support\Url;
+use App\Support\Input;
 
 final class CustomerController
 {
@@ -631,13 +632,12 @@ final class CustomerController
      */
     private function dateOrNull($value): ?string
     {
-        $value = trim((string) $value);
-
-        if ($value === '' || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
-            return null;
-        }
-
-        return $value;
+        /* STAGE 25 - was a shape check for a Gregorian Y-m-d string, which is
+           exactly what a Jalali field no longer posts. Input::date() accepts both
+           calendars and proves the day exists (2026-02-30 and 1405-07-31 are
+           both refused now, where the old regex waved them through), so this
+           helper keeps its contract and gets stricter about the value. */
+        return Input::date($value);
     }
 
     /**

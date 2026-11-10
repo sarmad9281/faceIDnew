@@ -17,7 +17,6 @@
  */
 
 use App\Support\Jalali;
-use App\Support\JalaliHint;
 
 $settings = $engine['settings'];
 ?>
@@ -143,7 +142,7 @@ $settings = $engine['settings'];
             <div class="filters">
                 <label class="field">
                     <span>تاریخ پیش‌نمایش</span>
-                    <input type="date" name="preview_date" class="ltr" value="<?= $e((string) ($dailyPreview['date'] ?? date('Y-m-d'))) ?>"><?= JalaliHint::render(($dailyPreview['date'] ?? date('Y-m-d'))) ?>
+                    <input type="text" data-shamsi="1" name="preview_date" class="ltr" value="<?= $e(Jalali::input((string) ($dailyPreview['date'] ?? date('Y-m-d')))) ?>">
                 </label>
                 <div class="field"><button type="submit" class="btn btn-ghost btn-block">نمایش پیش‌نمایش</button></div>
             </div>

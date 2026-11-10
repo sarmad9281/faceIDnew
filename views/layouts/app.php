@@ -264,12 +264,16 @@ $icon = static function (string $key) use ($icons): string {
     </div>
 </div>
 
-<?php /* STAGE 24 - manager.js now carries the Jalali date hints, so it gets an
-           explicit version like the kiosk scripts already do in
-           views/layouts/device.php. Without it the URL stays ?v=1.0.1 (app.version)
-           forever and a browser keeps running the cached copy. Stylesheets are NOT
-           touched: Url::CSS_VERSION stays 1.2.1 because no .css file changed - this
-           stage fixes contrast with the design tokens that already exist. */ ?>
-<script src="<?= $e($asset('js/manager.js', '1.3.0')) ?>" defer></script>
+<?php /* STAGE 25 - shamsi-date.js is the Jalali calendar behind every date field
+           of the panel, so it is loaded first and on every page: a view can put
+           data-shamsi on a field without knowing anything about the script.
+           manager.js follows and keeps its own explicit version, because without
+           one the URL stays ?v=1.0.1 (app.version) forever and a browser keeps
+           running the cached copy of the previous stage.
+           Stylesheets are NOT touched: Url::CSS_VERSION stays 1.2.1. The picker
+           is styled inline from the design tokens that already exist, so no .css
+           file changed and no cached stylesheet has to be invalidated. */ ?>
+<script src="<?= $e($asset('js/shamsi-date.js', '1.0.0')) ?>" defer></script>
+<script src="<?= $e($asset('js/manager.js', '1.4.0')) ?>" defer></script>
 </body>
 </html>

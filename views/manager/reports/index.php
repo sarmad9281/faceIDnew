@@ -20,7 +20,7 @@
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Services\ReportService;
-use App\Support\JalaliHint;
+use App\Support\Jalali;
 
 /*
  * One rule for a report cell, shared with the .xlsx exporter:
@@ -82,8 +82,8 @@ $exportQuery = static fn (): string => $url('/manager/reports/export?' . http_bu
     <form method="get" action="<?= $e($url('/manager/reports')) ?>">
         <input type="hidden" name="type" value="<?= $e($filters['type']) ?>">
         <div class="filters">
-            <label class="field"><span>از تاریخ</span><input type="date" name="date_from" class="ltr" value="<?= $e($filters['date_from']) ?>"><?= JalaliHint::render($filters['date_from']) ?></label>
-            <label class="field"><span>تا تاریخ</span><input type="date" name="date_to" class="ltr" value="<?= $e($filters['date_to']) ?>"><?= JalaliHint::render($filters['date_to']) ?></label>
+            <label class="field"><span>از تاریخ</span><input type="text" data-shamsi="1" name="date_from" class="ltr" value="<?= $e(Jalali::input($filters['date_from'])) ?>"></label>
+            <label class="field"><span>تا تاریخ</span><input type="text" data-shamsi="1" name="date_to" class="ltr" value="<?= $e(Jalali::input($filters['date_to'])) ?>"></label>
             <label class="field">
                 <span>پرسنل</span>
                 <select name="employee_id">

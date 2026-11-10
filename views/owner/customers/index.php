@@ -1,4 +1,7 @@
 <?php
+
+use App\Support\Jalali;
+
 /**
  * Owner - customers list (search + status + subscription filters + pagination).
  *
@@ -139,14 +142,14 @@ $rows = $listing['rows'];
                         </td>
                         <td>
                             <span class="o-badge <?= $subBadge ?>"><?= $e(\App\Models\Subscription::statusTitles()[$subKey] ?? $subKey) ?></span>
-                            <small><?= $e($customer['subscription_expire_date'] ?? '—') ?></small>
+                            <small><?= $e(Jalali::date($customer['subscription_expire_date'] ?? '')) ?></small>
                         </td>
                         <td><span class="o-badge o-badge-violet"><?= $e($customer['feature_count']) ?> فعال</span></td>
                         <td>
                             <?= $e($customer['employee_count']) ?> / <?= $e($customer['device_count']) ?>
                             <small>آنلاین: <?= $e($customer['online_count']) ?></small>
                         </td>
-                        <td><span class="o-small"><?= $e($customer['created_at']) ?></span></td>
+                        <td><span class="o-small"><?= $e(Jalali::dateTime($customer['created_at'])) ?></span></td>
                         <td>
                             <div class="o-actions">
                                 <a class="o-btn o-btn-sm" href="<?= $e($url('/owner/customers/' . $customer['uuid'])) ?>">جزئیات</a>

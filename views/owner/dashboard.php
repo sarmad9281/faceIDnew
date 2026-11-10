@@ -1,4 +1,7 @@
 <?php
+
+use App\Support\Jalali;
+
 /**
  * Owner dashboard - real counters + newest activity.
  *
@@ -135,7 +138,7 @@ $env    = $data['environment'];
                         <tr>
                             <td>
                                 <a href="<?= $e($url('/owner/customers/' . $customer['uuid'])) ?>"><?= $e($customer['name']) ?></a>
-                                <small><?= $e($customer['created_at']) ?></small>
+                                <small><?= $e(Jalali::dateTime($customer['created_at'])) ?></small>
                             </td>
                             <td>
                                 <span class="o-badge <?= $customer['status'] === 'active' ? 'o-badge-ok' : 'o-badge-bad' ?>">
@@ -220,7 +223,7 @@ $env    = $data['environment'];
                     $badge  = $row['result'] === 'success' ? 'o-badge-ok' : ($row['result'] === 'denied' ? 'o-badge-warn' : 'o-badge-bad');
                     ?>
                     <li>
-                        <span class="o-time"><?= $e($row['created_at']) ?></span>
+                        <span class="o-time"><?= $e(Jalali::dateTime($row['created_at'])) ?></span>
                         <span class="o-what">
                             <strong><span class="o-badge <?= $badge ?>"><?= $e(\App\Services\AuditService::titleFor($action)) ?></span></strong>
                             <small><?= $e($row['description'] ?? $row['event']) ?><?= !empty($row['customer_name']) ? ' — ' . $e($row['customer_name']) : '' ?></small>
