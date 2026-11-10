@@ -278,9 +278,31 @@ PHP 8.1 بدون خطا پارس شدند، و ویوی تلگرام در دو �
 docs/patches/patch-stage24.zip
 ```
 
-- محتوای بسته **همهٔ فایل‌های کامل این تسک** است با مسیرهای نسبت به ریشهٔ پروژه؛ هیچ
-  پوشهٔ اضافه‌ای داخل زیپ نیست و `vendor/`, `config/config.php`, `uploads/`, `storage/`,
-  `node_modules/` و `docs/patches/` هرگز در بسته نیستند.
-- مشخصات بسته (حجم و `sha256`) پس از ساخت در همین سند و در بدنهٔ PR نوشته می‌شود؛ با
-  `sha256sum docs/patches/patch-stage24.zip` مقایسه کنید.
+- محتوای بسته **۱۶ فایل کامل** این تسک است (۳ فایل تازه + ۱۳ فایل تغییریافته) با مسیرهای
+  نسبت به ریشهٔ پروژه؛ هیچ پوشهٔ اضافه‌ای داخل زیپ نیست:
+
+  ```
+  README.md                                   app/Support/JalaliHint.php
+  assets/js/manager.js                        docs/STAGE24.md
+  tests/stage24_jalali_date_hint_test.js      views/layouts/app.php
+  views/manager/activity/index.php            views/manager/attendance/index.php
+  views/manager/employees/form.php            views/manager/holidays/index.php
+  views/manager/leaves/index.php              views/manager/payroll/index.php
+  views/manager/reports/advanced.php          views/manager/reports/excel.php
+  views/manager/reports/index.php             views/manager/telegram/index.php
+  ```
+
+- مشخصات بسته برای راستی‌آزمایی پس از دانلود: **۷۰٬۹۴۹ بایت**،
+  `sha256 = dbfe76f56e1104a556dbb796123ad2181a3a5bad938927855573b1729c13884c`
+  (با `sha256sum docs/patches/patch-stage24.zip` مقایسه کنید).
+- هر ۱۶ فایلِ داخل بسته با `git show 0735524:<file>` بایت‌به‌بایت مقایسه و یکسان تأیید شد
+  (`0735524` = کامیتِ کدِ تسک ۲۴)؛ `unzip -t` بدون خطا؛ و هیچ‌کدام از `vendor/`,
+  `config/config.php`, `uploads/`, `storage/`, `node_modules/` و `docs/patches/` داخل بسته
+  نیست.
+- تنها تفاوتِ مورد انتظار: کپیِ `docs/STAGE24.md` **داخل بسته** همان نسخهٔ کامیتِ کد است و
+  طبیعتاً این بخشِ «مشخصات بسته» را ندارد — چون `sha256` بسته تنها **پس از** ساخته‌شدنِ خودِ
+  بسته قابل محاسبه است (وگرنه هر بار با به‌روزرسانی سند، هشِ سندِ داخل بسته عوض می‌شد و
+  راستی‌آزمایی بی‌معنا می‌ماند). بقیهٔ ۱۵ فایل کاملاً یکسان‌اند.
+- **هیچ استایل‌شیتی داخل بسته نیست**، چون هیچ‌کدام تغییر نکرد؛ پس نیازی هم به نگرانی دربارهٔ
+  کشِ CSS نیست. تنها فایل `assets/` در بسته `assets/js/manager.js` است.
 - در دایرکت‌ادمین در همان پوشهٔ سایت اکسترکت کنید و «Overwrite» را تأیید کنید.
