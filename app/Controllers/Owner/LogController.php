@@ -19,6 +19,7 @@ use App\Core\Response;
 use App\Core\View;
 use App\Models\AuditLog;
 use App\Services\AuditService;
+use App\Support\Input;
 
 final class LogController
 {
@@ -30,8 +31,13 @@ final class LogController
             'result'      => (string) $request->input('result', ''),
             'channel'     => (string) $request->input('channel', ''),
             'customer_id' => $request->int('customer_id', 0),
-            'from'        => (string) $request->input('from', ''),
-            'to'          => (string) $request->input('to', ''),
+            /* STAGE 25 - the log filter posts the Jalali date its field shows,
+               while AuditLog::paginate() compares created_at against a real
+               Gregorian DATE. Input::date() is the one door between the two, and
+               it passes a Gregorian value straight through, so a bookmarked URL
+               from before this stage still filters correctly. */
+            'from'        => Input::date($request->input('from', '')) ?? '',
+            'to'          => Input::date($request->input('to', '')) ?? '',
             'q'           => (string) $request->input('q', ''),
         ];
 
@@ -59,8 +65,13 @@ final class LogController
             'actor'       => (string) $request->input('actor', ''),
             'result'      => (string) $request->input('result', ''),
             'customer_id' => $request->int('customer_id', 0),
-            'from'        => (string) $request->input('from', ''),
-            'to'          => (string) $request->input('to', ''),
+            /* STAGE 25 - the log filter posts the Jalali date its field shows,
+               while AuditLog::paginate() compares created_at against a real
+               Gregorian DATE. Input::date() is the one door between the two, and
+               it passes a Gregorian value straight through, so a bookmarked URL
+               from before this stage still filters correctly. */
+            'from'        => Input::date($request->input('from', '')) ?? '',
+            'to'          => Input::date($request->input('to', '')) ?? '',
             'q'           => (string) $request->input('q', ''),
         ];
 

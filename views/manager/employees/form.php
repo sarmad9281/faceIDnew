@@ -12,7 +12,7 @@
  * @var callable $csrf
  */
 
-use App\Support\JalaliHint;
+use App\Support\Jalali;
 
 $isEdit = $employee !== null;
 $action = $isEdit ? '/manager/employees/update' : '/manager/employees';
@@ -89,8 +89,8 @@ $employmentTypes = [
             </select>
         </label>
         <label class="field">
-            <span>تاریخ استخدام (میلادی)</span>
-            <input type="date" name="hire_date" class="ltr" value="<?= $pick('hire_date', date('Y-m-d')) ?>"><?= JalaliHint::render($pick('hire_date', date('Y-m-d'))) ?>
+            <span>تاریخ استخدام</span>
+            <input type="text" data-shamsi="1" name="hire_date" class="ltr" value="<?= $e(Jalali::input($pick('hire_date', date('Y-m-d')))) ?>">
         </label>
 
         <?php if ($branchesEnabled): ?>

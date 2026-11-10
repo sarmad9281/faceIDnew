@@ -1,4 +1,7 @@
 <?php
+
+use App\Support\Jalali;
+
 /**
  * Owner - subscriptions list.
  *
@@ -102,8 +105,8 @@ $rows = $listing['rows'];
                         </td>
                         <td><?= $e($plans[$row['plan_name'] ?? 'trial'] ?? (string) ($row['plan_name'] ?? '—')) ?></td>
                         <td><span class="o-badge <?= $badge ?>"><?= $e(\App\Models\Subscription::statusTitles()[$status] ?? $status) ?></span></td>
-                        <td class="o-ltr o-small"><?= $e($row['subscription_start_date'] ?? '—') ?></td>
-                        <td class="o-ltr o-small"><?= $e($row['subscription_expire_date'] ?? '—') ?></td>
+                        <td class="o-ltr o-small"><?= $e(Jalali::date($row['subscription_start_date'] ?? '')) ?></td>
+                        <td class="o-ltr o-small"><?= $e(Jalali::date($row['subscription_expire_date'] ?? '')) ?></td>
                         <td>
                             <?php if ($row['days_remaining'] === null): ?>
                                 <span class="o-badge">بدون پایان</span>

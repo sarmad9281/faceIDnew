@@ -73,6 +73,136 @@ final class Jalali
     }
 
     /**
+     * STAGE 25 - the inverse of fromGregorian(): [1405, 8, 20] -> [2026, 11, 11].
+     *
+     * The panel's date fields show and accept the Jalali calendar, while the
+     * database keeps real Gregorian DATE columns, so the two directions are now
+     * both needed: this one turns what a form posts into what a query stores.
+     *
+     * It is the same 33-year-cycle arithmetic as fromGregorian() (the reference
+     * jalaali algorithm), not a lookup table and not a second, slightly
+     * different calendar rule: tests/stage25_shamsi_date_test.js round-trips
+     * every day of a 60 year window through fromGregorian() -> toGregorian()
+     * and compares the result with the platform's own Persian calendar.
+     *
+     * @return array{0:int,1:int,2:int} [year, month, day]
+     */
+    public static function toGregorian(int $jy, int $jm, int $jd): array
+    {
+        $jy += 1595;
+
+        $days = -355668 + (365 * $jy) + intdiv($jy, 33) * 8 + intdiv(($jy % 33) + 3, 4) + $jd
+            + ($jm < 7 ? ($jm - 1) * 31 : (($jm - 7) * 30) + 186);
+
+        $gy = 400 * intdiv($days, 146097);
+        $days %= 146097;
+
+        if ($days > 36524) {
+            $days--;
+            $gy += 100 * intdiv($days, 36524);
+            $days %= 36524;
+
+            if ($days >= 365) {
+                $days++;
+            }
+        }
+
+        $gy += 4 * intdiv($days, 1461);
+        $days %= 1461;
+
+        if ($days > 365) {
+            $gy += intdiv($days - 1, 365);
+            $days = ($days - 1) % 365;
+        }
+
+        $gd = $days + 1;
+
+        $february = (($gy % 4 === 0 && $gy % 100 !== 0) || $gy % 400 === 0) ? 29 : 28;
+        $gregorianDays = [0, 31, $february, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+        $gm = 1;
+
+        while ($gm <= 12 && $gd > $gregorianDays[$gm]) {
+            $gd -= $gregorianDays[$gm];
+            $gm++;
+        }
+
+        return [$gy, $gm, $gd];
+    }
+
+    /**
+     * How many days one Jalali month has: 31 for Farvardin..Shahrivar, 30 for
+     * Mehr..Bahman, and 29 or 30 for Esfand depending on the year.
+     *
+     * Esfand is decided by walking ONE Gregorian day past 29 Esfand and asking
+     * fromGregorian() where it landed, instead of keeping a second leap-year
+     * rule next to the converter. A rule of its own could drift from the
+     * arithmetic above; this cannot, because it is the same function that
+     * renders every other date in the panel.
+     *
+     * Returns 0 for a month outside 1..12 so a caller can use it as a validity
+     * check as well.
+     */
+    public static function monthLength(int $jy, int $jm): int
+    {
+        if ($jm < 1 || $jm > 12) {
+            return 0;
+        }
+
+        if ($jm <= 6) {
+            return 31;
+        }
+
+        if ($jm <= 11) {
+            return 30;
+        }
+
+        [$gy, $gm, $gd] = self::toGregorian($jy, 12, 29);
+        [$ny, $nm, $nd] = self::fromGregorian(...self::nextGregorianDay($gy, $gm, $gd));
+
+        return $ny === $jy && $nm === 12 && $nd === 30 ? 30 : 29;
+    }
+
+    /**
+     * The day after a Gregorian one, in pure integer arithmetic.
+     *
+     * Deliberately NOT mktime()/strtotime(): those go through the platform's
+     * time_t, which on a 32-bit build stops in 2038 and answers a warning
+     * instead of a date. A calendar helper must not inherit that ceiling - the
+     * converter itself has none.
+     *
+     * @return array{0:int,1:int,2:int}
+     */
+    private static function nextGregorianDay(int $gy, int $gm, int $gd): array
+    {
+        $february = (($gy % 4 === 0 && $gy % 100 !== 0) || $gy % 400 === 0) ? 29 : 28;
+        $lengths  = [0, 31, $february, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+        $gd++;
+
+        if ($gd > $lengths[$gm]) {
+            $gd = 1;
+            $gm++;
+
+            if ($gm > 12) {
+                $gm = 1;
+                $gy++;
+            }
+        }
+
+        return [$gy, $gm, $gd];
+    }
+
+    /**
+     * True for a real Jalali date, so "1405/07/31" (Mehr has 30 days) is
+     * rejected instead of silently rolling into Aban.
+     */
+    public static function isJalaliDate(int $jy, int $jm, int $jd): bool
+    {
+        return $jm >= 1 && $jm <= 12 && $jd >= 1 && $jd <= self::monthLength($jy, $jm);
+    }
+
+    /**
      * "2025-10-06" / "2025-10-06 08:30:00" -> "۱۴۰۴/۰۷/۱۴" (as latin digits: 1404/07/14).
      *
      * The method is idempotent: a value that is ALREADY a Jalali date
@@ -113,6 +243,25 @@ final class Jalali
         $out = sprintf('%04d/%02d/%02d', $jy, $jm, $jd);
 
         return $withTime && $time !== '' ? $out . ' ' . $time : $out;
+    }
+
+    /**
+     * STAGE 25 - the value a date FIELD shows: "1405/08/20", or "" when there
+     * is no date at all.
+     *
+     * date() answers "—" for an empty value because a table cell must not look
+     * blank; an input must, or it would submit an em dash. Anything that is not
+     * a real date - empty, "0000-00-00", or a stray string from a query
+     * parameter - also comes back empty, so no unparsable value is ever printed
+     * into an attribute.
+     *
+     * @param mixed $value
+     */
+    public static function input($value): string
+    {
+        $label = self::date($value);
+
+        return preg_match('#^\d{4}/\d{2}/\d{2}$#', $label) === 1 ? $label : '';
     }
 
     /**

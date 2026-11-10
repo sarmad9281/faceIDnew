@@ -1,4 +1,7 @@
 <?php
+
+use App\Support\Jalali;
+
 /**
  * Owner - platform settings, database structure and maintenance.
  *
@@ -174,7 +177,7 @@ $fieldName = static fn (string $key): string => str_replace('.', '_', $key);
                                 <td><?= $e($token['name']) ?></td>
                                 <td class="o-ltr o-small"><?= $e($token['token_prefix']) ?>…</td>
                                 <td class="o-ltr o-small"><?= $e($token['abilities'] ?? '*') ?></td>
-                                <td class="o-small"><?= $e($token['created_at']) ?></td>
+                                <td class="o-small"><?= $e(Jalali::dateTime($token['created_at'])) ?></td>
                                 <td class="o-small"><?= $e($token['expires_at'] ?? '—') ?></td>
                                 <td class="o-small"><?= $e($token['last_used_at'] ?? '—') ?></td>
                                 <td>

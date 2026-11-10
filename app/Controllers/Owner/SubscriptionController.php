@@ -19,6 +19,7 @@ use App\Core\View;
 use App\Models\Customer;
 use App\Models\Subscription;
 use App\Services\SubscriptionService;
+use App\Support\Input;
 
 final class SubscriptionController
 {
@@ -92,8 +93,10 @@ final class SubscriptionController
             $result = (new SubscriptionService())->update($customerId, [
                 'plan_name'     => (string) $request->input('plan_name', 'trial'),
                 'status'        => (string) $request->input('status', 'trial'),
-                'start_date'    => (string) $request->input('start_date', ''),
-                'expire_date'   => (string) $request->input('expire_date', ''),
+                /* STAGE 25 - these two are written to DATE columns, so the
+                   Jalali date the field shows has to become Gregorian here. */
+                'start_date'    => Input::date($request->input('start_date', '')) ?? '',
+                'expire_date'   => Input::date($request->input('expire_date', '')) ?? '',
                 'price'         => (string) $request->input('price', ''),
                 'max_employees' => $request->int('max_employees', 50),
                 'max_devices'   => $request->int('max_devices', 5),

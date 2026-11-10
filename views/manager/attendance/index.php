@@ -23,7 +23,6 @@
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Support\Jalali;
-use App\Support\JalaliHint;
 
 $insideTotal = $insideTotal ?? count($inside);
 
@@ -157,8 +156,8 @@ $flagList = static function ($flagsRaw) use ($flags): array {
 <section class="card">
     <form method="get" action="<?= $e($url('/manager/attendance')) ?>">
         <div class="filters">
-            <label class="field"><span>از تاریخ</span><input type="date" name="date_from" class="ltr" value="<?= $e($filters['date_from']) ?>"><?= JalaliHint::render($filters['date_from']) ?></label>
-            <label class="field"><span>تا تاریخ</span><input type="date" name="date_to" class="ltr" value="<?= $e($filters['date_to']) ?>"><?= JalaliHint::render($filters['date_to']) ?></label>
+            <label class="field"><span>از تاریخ</span><input type="text" data-shamsi="1" name="date_from" class="ltr" value="<?= $e(Jalali::input($filters['date_from'])) ?>"></label>
+            <label class="field"><span>تا تاریخ</span><input type="text" data-shamsi="1" name="date_to" class="ltr" value="<?= $e(Jalali::input($filters['date_to'])) ?>"></label>
             <label class="field">
                 <span>پرسنل</span>
                 <select name="employee_id">
@@ -349,7 +348,7 @@ $flagList = static function ($flagsRaw) use ($flags): array {
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="field"><span>تاریخ</span><input type="date" name="attendance_date" id="manual-date" class="ltr" value="<?= $e(date('Y-m-d')) ?>" required><?= JalaliHint::render(date('Y-m-d')) ?></div>
+                <div class="field"><span>تاریخ</span><input type="text" data-shamsi="1" name="attendance_date" id="manual-date" class="ltr" value="<?= Jalali::today() ?>" required></div>
                 <div class="field"><span>ساعت ورود</span><input type="time" name="entry_at" id="manual-entry" class="ltr" required></div>
                 <div class="field"><span>ساعت خروج (خالی = ورود باز)</span><input type="time" name="exit_at" id="manual-exit" class="ltr"></div>
                 <div class="field"><span>دلیل (الزامی)</span><input type="text" name="reason" required maxlength="200" placeholder="مثلاً: خرابی دستگاه در نوبت صبح"></div>
@@ -365,15 +364,15 @@ $flagList = static function ($flagsRaw) use ($flags): array {
             </p>
             <form method="post" action="<?= $e($url('/manager/attendance/recalculate')) ?>">
                 <?= $csrf() ?>
-                <div class="field"><span>از تاریخ</span><input type="date" name="date_from" class="ltr" value="<?= $e($filters['date_from']) ?>" required><?= JalaliHint::render($filters['date_from']) ?></div>
-                <div class="field"><span>تا تاریخ</span><input type="date" name="date_to" class="ltr" value="<?= $e($filters['date_to']) ?>" required><?= JalaliHint::render($filters['date_to']) ?></div>
+                <div class="field"><span>از تاریخ</span><input type="text" data-shamsi="1" name="date_from" class="ltr" value="<?= $e(Jalali::input($filters['date_from'])) ?>" required></div>
+                <div class="field"><span>تا تاریخ</span><input type="text" data-shamsi="1" name="date_to" class="ltr" value="<?= $e(Jalali::input($filters['date_to'])) ?>" required></div>
                 <label class="check"><input type="checkbox" name="use_current_shift" value="1"> با شیفت فعلی پرسنل (نه شیفت زمان ثبت)</label>
                 <button type="submit" class="btn btn-block" style="margin-top:10px">بازمحاسبه بازه</button>
             </form>
             <hr>
             <form method="post" action="<?= $e($url('/manager/attendance/close-day')) ?>">
                 <?= $csrf() ?>
-                <div class="field"><span>بستن روز (محاسبه غیبت)</span><input type="date" name="date" class="ltr" value="<?= $e(date('Y-m-d', strtotime('-1 day'))) ?>" required><?= JalaliHint::render(date('Y-m-d', strtotime('-1 day'))) ?></div>
+                <div class="field"><span>بستن روز (محاسبه غیبت)</span><input type="text" data-shamsi="1" name="date" class="ltr" value="<?= $e(Jalali::input(date('Y-m-d', strtotime('-1 day')))) ?>" required></div>
                 <button type="submit" class="btn btn-block">بستن روز</button>
             </form>
         </section>

@@ -12,6 +12,9 @@
  * @var callable $url
  * @var callable $csrf
  */
+
+use App\Support\Jalali;
+
 $rows = $listing['rows'];
 
 $resultBadge = static function (string $result): string {
@@ -87,13 +90,13 @@ $resultBadge = static function (string $result): string {
         </label>
 
         <label class="o-field">
-            <span>از تاریخ (میلادی)</span>
-            <input type="date" name="from" value="<?= $e($filters['from']) ?>" class="o-ltr">
+            <span>از تاریخ</span>
+            <input type="text" data-shamsi="1" name="from" value="<?= $e(Jalali::input($filters['from'])) ?>" class="o-ltr">
         </label>
 
         <label class="o-field">
-            <span>تا تاریخ (میلادی)</span>
-            <input type="date" name="to" value="<?= $e($filters['to']) ?>" class="o-ltr">
+            <span>تا تاریخ</span>
+            <input type="text" data-shamsi="1" name="to" value="<?= $e(Jalali::input($filters['to'])) ?>" class="o-ltr">
         </label>
 
         <label class="o-field">
@@ -141,7 +144,7 @@ $resultBadge = static function (string $result): string {
                 <?php foreach ($rows as $row): ?>
                     <?php $action = (string) ($row['action'] ?? \App\Services\AuditService::actionFor((string) $row['event'])); ?>
                     <tr>
-                        <td class="o-small o-nowrap"><?= $e($row['created_at']) ?></td>
+                        <td class="o-small o-nowrap"><?= $e(Jalali::dateTime($row['created_at'])) ?></td>
                         <td>
                             <span class="o-badge o-badge-info"><?= $e(\App\Services\AuditService::titleFor($action)) ?></span>
                             <small class="o-ltr"><?= $e($row['event']) ?></small>

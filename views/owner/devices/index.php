@@ -1,4 +1,7 @@
 <?php
+
+use App\Support\Jalali;
+
 /**
  * Owner - device management (search / customer / status / online filters).
  *
@@ -158,7 +161,7 @@ $statusBadge = [
                                 <small>تلاش ناموفق: <?= (int) $activation['attempts'] ?></small>
                             <?php endif; ?>
                         </td>
-                        <td class="o-small"><?= $e($device['created_at']) ?></td>
+                        <td class="o-small"><?= $e(Jalali::dateTime($device['created_at'])) ?></td>
                         <td>
                             <div class="o-actions">
                                 <form method="post" action="<?= $e($url('/owner/devices/activation-code')) ?>" class="o-inline-form"
@@ -272,7 +275,7 @@ $statusBadge = [
                     ][(string) $log['level']] ?? 'o-badge-muted';
                     ?>
                     <tr>
-                        <td class="o-small"><?= $e($log['created_at']) ?></td>
+                        <td class="o-small"><?= $e(Jalali::dateTime($log['created_at'])) ?></td>
                         <td><?= $e(\App\Models\DeviceLog::eventLabel((string) $log['event'])) ?><small class="o-ltr"><?= $e($log['event']) ?></small></td>
                         <td><span class="o-badge <?= $levelBadge ?>"><?= $e($log['level']) ?></span></td>
                         <td>

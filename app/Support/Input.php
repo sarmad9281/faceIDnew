@@ -25,9 +25,80 @@ final class Input
         return checkdate((int) $m[2], (int) $m[3], (int) $m[1]);
     }
 
+    /**
+     * A date taken from a request, normalised to the Gregorian "Y-m-d" that the
+     * database stores.
+     *
+     * STAGE 25 - the panel's date fields show and post the JALALI calendar
+     * ("1405/08/20"), because that is the calendar the person filling the form
+     * reads, while every column stays a real DATE. This method is the ONE place
+     * where the two meet, so all of its callers keep working unchanged and a
+     * value typed by hand in either calendar is accepted.
+     *
+     * Which calendar a value is in is decided by its YEAR, never guessed from
+     * the separator: below 1900 it is Jalali (this panel deals with the 1400s),
+     * 1900 and above it is Gregorian. Persian and Arabic-Indic digits are folded
+     * to Latin first, so a pasted ۱۴۰۵/۰۸/۲۰ works too. An impossible Jalali
+     * date ("1405/07/31" - Mehr has 30 days) is rejected rather than rolled
+     * into the next month.
+     *
+     * @param mixed $value
+     */
     public static function date($value): ?string
     {
-        return self::isDate($value) ? trim((string) $value) : null;
+        $value = Encoding::toLatinDigits(trim((string) ($value ?? '')));
+
+        if ($value === '' || preg_match('#^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$#', $value, $m) !== 1) {
+            return null;
+        }
+
+        $year = (int) $m[1];
+
+        /* The year decides the calendar, and it has to be decided BEFORE the
+           Gregorian shape is accepted: "1405-08-20" is a perfectly valid
+           Gregorian date too (the year 1405), so a dash alone cannot mean
+           "this is what the database stores". */
+        if ($year >= 1900) {
+            return checkdate((int) $m[2], (int) $m[3], $year)
+                ? sprintf('%04d-%02d-%02d', $year, (int) $m[2], (int) $m[3])
+                : null;
+        }
+
+        return self::jalaliDate($value);
+    }
+
+    /**
+     * "1405/08/20" (or 1405-8-20) -> "2026-11-11", and null for anything that
+     * is not a real Jalali date. Also the answer for a value that merely looks
+     * Jalali but carries a Gregorian year.
+     *
+     * @param mixed $value
+     */
+    public static function jalaliDate($value): ?string
+    {
+        $value = Encoding::toLatinDigits(trim((string) ($value ?? '')));
+
+        if (preg_match('#^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$#', $value, $m) !== 1) {
+            return null;
+        }
+
+        [$jy, $jm, $jd] = [(int) $m[1], (int) $m[2], (int) $m[3]];
+
+        // A four digit year of 1900 or more is not a Jalali year; refusing it
+        // here is what keeps the two calendars unambiguous in date().
+        if ($jy < 1000 || $jy >= 1900 || !Jalali::isJalaliDate($jy, $jm, $jd)) {
+            return null;
+        }
+
+        [$gy, $gm, $gd] = Jalali::toGregorian($jy, $jm, $jd);
+
+        return sprintf('%04d-%02d-%02d', $gy, $gm, $gd);
+    }
+
+    /** True for a real Jalali date string ("1405/08/20"). */
+    public static function isJalaliDate($value): bool
+    {
+        return self::jalaliDate($value) !== null;
     }
 
     /** HH:MM (00:00 - 23:59). */

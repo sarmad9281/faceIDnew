@@ -1,4 +1,7 @@
 <?php
+
+use App\Support\Jalali;
+
 /**
  * Owner - employees overview across all customers (read-only aggregate).
  *
@@ -126,7 +129,7 @@ foreach ($overview['customers'] as $row) {
                                 <?= !empty($employee['face_enrolled']) ? 'ثبت شده' : 'ثبت نشده' ?>
                             </span>
                         </td>
-                        <td class="o-small"><?= $e($employee['created_at']) ?></td>
+                        <td class="o-small"><?= $e(Jalali::dateTime($employee['created_at'])) ?></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>

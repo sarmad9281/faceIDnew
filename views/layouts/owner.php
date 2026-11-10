@@ -142,6 +142,12 @@ if (is_array($user) && !empty($user['name'])) {
     </div>
 </div>
 
+<?php /* STAGE 25 - the owner panel has date fields too (a subscription's start
+           and expiry, the audit log range), and they are Jalali for the same
+           reason the manager panel's are: nobody should have to convert a date in
+           their head to read it back. One picker serves both panels, so this is
+           the same file views/layouts/app.php loads. */ ?>
+<script src="<?= $e($asset('js/shamsi-date.js', '1.0.0')) ?>" defer></script>
 <script src="<?= $e($asset('js/owner.js')) ?>" defer></script>
 </body>
 </html>

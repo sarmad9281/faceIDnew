@@ -174,8 +174,15 @@ section("G. The «گزارش روزانه» card");
 
 check("the card has a heading a screen reader can find", view.includes("<h2>گزارش روزانه</h2>"));
 check("the card shows the Jalali date it previews", view.includes("$e(Jalali::date((string) ($dailyPreview['date'] ?? date('Y-m-d'))))"));
-check("the card has a date picker", view.includes("<input type=\"date\" name=\"preview_date\" class=\"ltr\""));
-check("the date picker keeps the requested date", view.includes("value=\"<?= $e((string) ($dailyPreview['date'] ?? date('Y-m-d'))) ?>\""));
+/* STAGE 25 rewrote these two. The card used to carry a native
+   <input type="date">, which showed the browser's Gregorian calendar and stored
+   11/11/2026 in the box; every date field of the panel is a Jalali field now, so
+   the assertion follows the markup instead of the other way round. What stage 23
+   actually cared about - that the card previews ONE requested date and keeps it -
+   is still what these check. */
+check("the card has a Jalali date picker", view.includes("<input type=\"text\" data-shamsi=\"1\" name=\"preview_date\" class=\"ltr\""));
+check("no native Gregorian picker is left on the card", !view.includes("type=\"date\""));
+check("the picker keeps the requested date", view.includes("value=\"<?= $e(Jalali::input((string) ($dailyPreview['date'] ?? date('Y-m-d')))) ?>\""));
 check("the exact message text is shown in a preformatted block", view.includes("<pre dir=\"rtl\""));
 check("the preview block wraps long lines instead of scrolling off screen", view.includes("white-space:pre-wrap"));
 check("the preview text is escaped", view.includes("<?= $e((string) ($dailyPreview['message'] ?? '')) ?>"));

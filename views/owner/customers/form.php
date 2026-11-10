@@ -12,6 +12,9 @@
  * @var callable $url
  * @var callable $csrf
  */
+
+use App\Support\Jalali;
+
 $isEdit = $mode === 'edit';
 $errors = [];
 
@@ -168,11 +171,11 @@ $error = static function (string $key) use ($errors): string {
                     </label>
                     <label class="o-field">
                         <span>تاریخ شروع</span>
-                        <input type="date" name="start_date" value="<?= $e(date('Y-m-d')) ?>" class="o-ltr">
+                        <input type="text" data-shamsi="1" name="start_date" value="<?= Jalali::today() ?>" class="o-ltr">
                     </label>
                     <label class="o-field">
                         <span>تاریخ پایان</span>
-                        <input type="date" name="expire_date" value="<?= $e(date('Y-m-d', time() + ((int) $trialDays * 86400))) ?>" class="o-ltr">
+                        <input type="text" data-shamsi="1" name="expire_date" value="<?= $e(Jalali::input(date('Y-m-d', time() + ((int) $trialDays * 86400)))) ?>" class="o-ltr">
                         <small>پیش‌فرض: <?= $e($trialDays) ?> روز آزمایشی</small>
                     </label>
                 </div>

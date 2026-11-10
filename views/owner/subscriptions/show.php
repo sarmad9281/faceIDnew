@@ -11,6 +11,9 @@
  * @var callable $url
  * @var callable $csrf
  */
+
+use App\Support\Jalali;
+
 $uuid = (string) $customer['uuid'];
 ?>
 <div class="o-page-head">
@@ -31,7 +34,7 @@ $uuid = (string) $customer['uuid'];
     <div class="o-kpi"><span class="o-kpi-label">پلن فعلی</span><span class="o-kpi-value" style="font-size:20px"><?= $e($plans[$subscription['plan_name'] ?? 'trial'] ?? (string) ($subscription['plan_name'] ?? '—')) ?></span></div>
     <div class="o-kpi <?= $status === 'active' ? 'is-ok' : 'is-warn' ?>"><span class="o-kpi-label">وضعیت</span><span class="o-kpi-value" style="font-size:20px"><?= $e($statuses[$status] ?? $status) ?></span></div>
     <div class="o-kpi"><span class="o-kpi-label">روز باقی‌مانده</span><span class="o-kpi-value"><?= $e($daysLeft === null ? '∞' : $daysLeft) ?></span></div>
-    <div class="o-kpi"><span class="o-kpi-label">پایان اعتبار</span><span class="o-kpi-value" style="font-size:18px"><?= $e($subscription['expire_date'] ?? ($customer['subscription_expire_date'] ?? '—')) ?></span></div>
+    <div class="o-kpi"><span class="o-kpi-label">پایان اعتبار</span><span class="o-kpi-value" style="font-size:18px"><?= $e(Jalali::date($subscription['expire_date'] ?? ($customer['subscription_expire_date'] ?? ''))) ?></span></div>
 </div>
 
 <div class="o-grid o-grid-2">
@@ -65,14 +68,14 @@ $uuid = (string) $customer['uuid'];
 
                 <label class="o-field">
                     <span>تاریخ شروع</span>
-                    <input type="date" name="start_date" class="o-ltr"
-                           value="<?= $e((string) ($subscription['start_date'] ?? $customer['subscription_start_date'] ?? date('Y-m-d'))) ?>">
+                    <input type="text" data-shamsi="1" name="start_date" class="o-ltr"
+                           value="<?= $e(Jalali::input((string) ($subscription['start_date'] ?? $customer['subscription_start_date'] ?? date('Y-m-d')))) ?>">
                 </label>
 
                 <label class="o-field">
                     <span>تاریخ پایان</span>
-                    <input type="date" name="expire_date" class="o-ltr"
-                           value="<?= $e((string) ($subscription['expire_date'] ?? $customer['subscription_expire_date'] ?? '')) ?>">
+                    <input type="text" data-shamsi="1" name="expire_date" class="o-ltr"
+                           value="<?= $e(Jalali::input((string) ($subscription['expire_date'] ?? $customer['subscription_expire_date'] ?? ''))) ?>">
                 </label>
 
                 <label class="o-field">
@@ -113,10 +116,10 @@ $uuid = (string) $customer['uuid'];
                     <tbody>
                     <?php foreach ($history as $row): ?>
                         <tr>
-                            <td class="o-small o-nowrap"><?= $e($row['created_at']) ?></td>
+                            <td class="o-small o-nowrap"><?= $e(Jalali::dateTime($row['created_at'])) ?></td>
                             <td><?= $e($row['plan_name']) ?></td>
                             <td><span class="o-badge"><?= $e($statuses[(string) $row['status']] ?? $row['status']) ?></span></td>
-                            <td class="o-ltr o-small"><?= $e($row['start_date'] ?? '—') ?> → <?= $e($row['expire_date'] ?? '—') ?></td>
+                            <td class="o-ltr o-small"><?= $e(Jalali::date($row['start_date'] ?? '')) ?> → <?= $e(Jalali::date($row['expire_date'] ?? '')) ?></td>
                             <td class="o-small"><?= $e($row['actor_name'] ?? '—') ?></td>
                         </tr>
                     <?php endforeach; ?>
