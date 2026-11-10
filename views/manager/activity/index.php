@@ -12,6 +12,7 @@
  */
 
 use App\Support\Jalali;
+use App\Support\JalaliHint;
 
 $summaryLabels = ['success' => 'موفق (۷ روز)', 'failure' => 'ناموفق (۷ روز)', 'denied' => 'رد شده (۷ روز)', 'error' => 'خطا (۷ روز)'];
 $badge = static function (string $result): string {
@@ -67,8 +68,8 @@ $badge = static function (string $result): string {
                     <option value="error" <?= $filters['result'] === 'error' ? 'selected' : '' ?>>خطا</option>
                 </select>
             </label>
-            <label class="field"><span>از تاریخ</span><input type="date" name="from" class="ltr" value="<?= $e($filters['from']) ?>"></label>
-            <label class="field"><span>تا تاریخ</span><input type="date" name="to" class="ltr" value="<?= $e($filters['to']) ?>"></label>
+            <label class="field"><span>از تاریخ</span><input type="date" name="from" class="ltr" value="<?= $e($filters['from']) ?>"><?= JalaliHint::render($filters['from']) ?></label>
+            <label class="field"><span>تا تاریخ</span><input type="date" name="to" class="ltr" value="<?= $e($filters['to']) ?>"><?= JalaliHint::render($filters['to']) ?></label>
             <div class="field"><button type="submit" class="btn btn-primary btn-block">اعمال فیلتر</button></div>
         </div>
     </form>

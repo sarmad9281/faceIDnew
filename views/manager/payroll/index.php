@@ -21,6 +21,7 @@
 
 use App\Models\AttendanceRecord;
 use App\Support\Jalali;
+use App\Support\JalaliHint;
 
 $money = static fn ($value): string => number_format((float) $value, 0);
 
@@ -54,8 +55,8 @@ $previewOrFrozen = $isFinal ? $items : $preview;
     </div>
     <form method="get" action="<?= $e($url('/manager/payroll')) ?>">
         <div class="filters">
-            <label class="field"><span>از تاریخ</span><input type="date" name="date_from" class="ltr" value="<?= $e($engine['from']) ?>"></label>
-            <label class="field"><span>تا تاریخ</span><input type="date" name="date_to" class="ltr" value="<?= $e($engine['to']) ?>"></label>
+            <label class="field"><span>از تاریخ</span><input type="date" name="date_from" class="ltr" value="<?= $e($engine['from']) ?>"><?= JalaliHint::render($engine['from']) ?></label>
+            <label class="field"><span>تا تاریخ</span><input type="date" name="date_to" class="ltr" value="<?= $e($engine['to']) ?>"><?= JalaliHint::render($engine['to']) ?></label>
             <div class="field"><button type="submit" class="btn btn-primary btn-block">محاسبه پیش‌نمایش</button></div>
         </div>
     </form>
@@ -125,8 +126,8 @@ $previewOrFrozen = $isFinal ? $items : $preview;
         <form method="post" action="<?= $e($url('/manager/payroll/period')) ?>">
             <?= $csrf() ?>
             <div class="filters">
-                <label class="field"><span>از تاریخ</span><input type="date" name="date_from" class="ltr" value="<?= $e($engine['from']) ?>"></label>
-                <label class="field"><span>تا تاریخ</span><input type="date" name="date_to" class="ltr" value="<?= $e($engine['to']) ?>"></label>
+                <label class="field"><span>از تاریخ</span><input type="date" name="date_from" class="ltr" value="<?= $e($engine['from']) ?>"><?= JalaliHint::render($engine['from']) ?></label>
+                <label class="field"><span>تا تاریخ</span><input type="date" name="date_to" class="ltr" value="<?= $e($engine['to']) ?>"><?= JalaliHint::render($engine['to']) ?></label>
                 <label class="field"><span>عنوان (اختیاری)</span><input type="text" name="title" maxlength="120"></label>
                 <div class="field"><button type="submit" class="btn btn-ghost btn-block">ایجاد / انتخاب دوره</button></div>
             </div>
@@ -531,7 +532,7 @@ $previewOrFrozen = $isFinal ? $items : $preview;
                     <?php elseif (($meta['kind'] ?? '') === 'date'): ?>
                         <label class="field">
                             <span><?= $e($meta['label']) ?></span>
-                            <input type="date" name="<?= $e($field) ?>" class="ltr">
+                            <input type="date" name="<?= $e($field) ?>" class="ltr"><?= JalaliHint::render('') ?>
                             <span class="field-hint"><?= $e($meta['hint']) ?></span>
                         </label>
                     <?php else: ?>

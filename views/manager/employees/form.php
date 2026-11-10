@@ -12,6 +12,8 @@
  * @var callable $csrf
  */
 
+use App\Support\JalaliHint;
+
 $isEdit = $employee !== null;
 $action = $isEdit ? '/manager/employees/update' : '/manager/employees';
 $row    = $employee ?? [];
@@ -88,8 +90,7 @@ $employmentTypes = [
         </label>
         <label class="field">
             <span>تاریخ استخدام (میلادی)</span>
-            <input type="date" name="hire_date" class="ltr" value="<?= $pick('hire_date', date('Y-m-d')) ?>">
-            <span class="field-hint">معادل شمسی: <?= $e(\App\Support\Jalali::date($pick('hire_date', date('Y-m-d')))) ?></span>
+            <input type="date" name="hire_date" class="ltr" value="<?= $pick('hire_date', date('Y-m-d')) ?>"><?= JalaliHint::render($pick('hire_date', date('Y-m-d'))) ?>
         </label>
 
         <?php if ($branchesEnabled): ?>

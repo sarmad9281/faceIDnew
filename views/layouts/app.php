@@ -264,6 +264,12 @@ $icon = static function (string $key) use ($icons): string {
     </div>
 </div>
 
-<script src="<?= $e($asset('js/manager.js')) ?>" defer></script>
+<?php /* STAGE 24 - manager.js now carries the Jalali date hints, so it gets an
+           explicit version like the kiosk scripts already do in
+           views/layouts/device.php. Without it the URL stays ?v=1.0.1 (app.version)
+           forever and a browser keeps running the cached copy. Stylesheets are NOT
+           touched: Url::CSS_VERSION stays 1.2.1 because no .css file changed - this
+           stage fixes contrast with the design tokens that already exist. */ ?>
+<script src="<?= $e($asset('js/manager.js', '1.3.0')) ?>" defer></script>
 </body>
 </html>
