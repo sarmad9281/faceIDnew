@@ -195,6 +195,12 @@ final class PayrollCalculator
             'early_leave_minutes' => $earlyMin,
             'base_amount'         => round($base, 2),
             'hourly_rate'         => round($effectiveHourly, 2),
+            // Stage 23: the derived daily wage, published as a number of its own.
+            // It is exactly the $effectiveDaily that the base pay, the absence
+            // deduction and the derived hourly rate have always used, so no
+            // existing amount changes - the insurance diskette (DSW_ROOZ) just
+            // needs it as a separate field instead of re-deriving it.
+            'daily_rate'          => round($effectiveDaily, 2),
             'overtime_rate'       => round($effectiveOvertimeHour, 2),
             'overtime_amount'     => $overtimeAmount,
             'late_rate'           => round($effectiveLateMinute, 4),

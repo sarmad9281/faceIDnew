@@ -454,6 +454,98 @@ final class MigrationService
             'definition' => 'VARCHAR(60) DEFAULT NULL',
             'after'      => 'face_samples_count',
         ],
+
+        /* ---- stage 23: social security diskette + bank payment file -----
+           The SSO list needs identity data that the payroll calculation does
+           not use (insurance number, father's name, birth date, ID document,
+           job code) and the bank file needs the IBAN. They live next to the
+           rate profile they belong to - one row per employee - and never on
+           attendance_employees, so the personnel form stays a personnel form.
+
+           Every column is nullable with a sane default: the exporter treats a
+           missing value as an empty diskette field (never a made up one) and
+           the read paths below are written defensively, so a database that has
+           not run this migration yet keeps working. */
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'insurance_no',
+            'definition' => 'VARCHAR(20) DEFAULT NULL',
+            'after'      => 'notes',
+        ],
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'insurance_job_code',
+            'definition' => 'VARCHAR(10) DEFAULT NULL',
+            'after'      => 'insurance_no',
+        ],
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'father_name',
+            'definition' => 'VARCHAR(80) DEFAULT NULL',
+            'after'      => 'insurance_job_code',
+        ],
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'birth_date',
+            'definition' => 'DATE DEFAULT NULL',
+            'after'      => 'father_name',
+        ],
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'id_number',
+            'definition' => 'VARCHAR(20) DEFAULT NULL',
+            'after'      => 'birth_date',
+        ],
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'id_place',
+            'definition' => 'VARCHAR(60) DEFAULT NULL',
+            'after'      => 'id_number',
+        ],
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'id_issue_date',
+            'definition' => 'DATE DEFAULT NULL',
+            'after'      => 'id_place',
+        ],
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'gender',
+            'definition' => "ENUM('male','female') DEFAULT NULL",
+            'after'      => 'id_issue_date',
+        ],
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'nationality',
+            'definition' => 'VARCHAR(30) DEFAULT NULL',
+            'after'      => 'gender',
+        ],
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'iban',
+            'definition' => 'VARCHAR(34) DEFAULT NULL',
+            'after'      => 'nationality',
+        ],
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'bank_name',
+            'definition' => 'VARCHAR(60) DEFAULT NULL',
+            'after'      => 'iban',
+        ],
+        [
+            'table'      => 'payroll_profiles',
+            'column'     => 'account_number',
+            'definition' => 'VARCHAR(40) DEFAULT NULL',
+            'after'      => 'bank_name',
+        ],
+        [
+            /* Set by the employer when somebody leaves: DSW_EDATE of the SSO
+               list, the "ترک کار" date. NULL while the person is employed. */
+            'table'      => 'payroll_profiles',
+            'column'     => 'insurance_end_date',
+            'definition' => 'DATE DEFAULT NULL',
+            'after'      => 'account_number',
+        ],
     ];
 
     /**

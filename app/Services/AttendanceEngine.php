@@ -536,6 +536,16 @@ final class AttendanceEngine
 
         $open = AttendanceRecord::openSessionFor($customerId, $employeeId);
 
+        /* Stage 23 (night shift): an open session whose shift window has long
+           ended is a FORGOTTEN exit punch, not "you are already inside". Without
+           this, one missed punch blocked every later entry of that employee
+           until a manager corrected the row by hand. The row is closed with the
+           end of its own window (never with "now", which would invent hours
+           nobody worked) and the new entry proceeds normally. */
+        if ($open !== null && $this->closeStaleSession($customerId, $employeeId, $deviceId, $open, $eventAt, $requestId)) {
+            $open = null;
+        }
+
         if ($open !== null) {
             $this->log('attendance.entry.duplicate', $customerId, $deviceId, $employeeId, [
                 'request_id' => $requestId,
@@ -549,7 +559,15 @@ final class AttendanceEngine
             ]);
         }
 
-        $shift    = ShiftResolver::resolve($employeeId, $customerId, $date);
+        /* Stage 23 (night shift): the attendance DATE of this punch is not always
+           its calendar date. A punch at 02:10 belongs to the shift that started
+           at 20:00 the day before, and ShiftResolver::resolveForMoment() is the
+           one place that decides it - the date, the shift and the snapshot that
+           are written below all come from that single answer. */
+        $resolved = ShiftResolver::resolveForMoment($employeeId, $customerId, $eventAt, $date);
+        $shift    = $resolved['shift'];
+        $date     = (string) $resolved['date'];
+
         $context  = $this->dayContext($customerId, $employeeId, $date, $branchId);
         $calc     = AttendanceCalculator::calculateSession(['entry_at' => $eventAt, 'exit_at' => null], $shift, $context, $date);
         $sessions = AttendanceRecord::sessionsOn($customerId, $employeeId, $date);
@@ -1376,14 +1394,21 @@ final class AttendanceEngine
         $created       = 0;
         $absentCreated = 0;
         $leaveCreated  = 0;
-        $skipped       = ['holiday' => 0, 'no_shift' => 0, 'has_sessions' => 0];
+        $skipped       = ['holiday' => 0, 'no_shift' => 0, 'has_sessions' => 0, 'night_shift_open' => 0];
 
         foreach ($employees as $employee) {
             $employeeId = (int) $employee['id'];
 
             $sessions = AttendanceRecord::sessionsOn($customerId, $employeeId, $date);
 
-            if ($sessions !== []) {
+            /* Stage 23 (night shift): sessionsOn() only counts CLOSED rows, so a
+               person who punched in and has not punched out yet looked like
+               somebody with no session at all - and got an absence row written
+               next to the row that was still open. An OPEN session of this date
+               is a session. */
+            $open = AttendanceRecord::openSessionFor($customerId, $employeeId);
+
+            if ($sessions !== [] || ($open !== null && substr((string) ($open['attendance_date'] ?? ''), 0, 10) === $date)) {
                 $skipped['has_sessions']++;
 
                 continue;
@@ -1393,6 +1418,17 @@ final class AttendanceEngine
 
             if ($shift === null) {
                 $skipped['no_shift']++;
+
+                continue;
+            }
+
+            /* A shift that crosses midnight is still RUNNING when the day is
+               closed before its end (20:00 → 06:00 closed at 23:00). Writing an
+               absence then is wrong twice over: the person is at work, and the
+               exit punch will arrive on the next calendar date. Closing a PAST
+               date is always final, so only "today" can be skipped here. */
+            if ($this->nightShiftStillRunning($shift, $date)) {
+                $skipped['night_shift_open']++;
 
                 continue;
             }
@@ -1823,6 +1859,162 @@ final class AttendanceEngine
         $flags = array_values(array_unique(array_filter(array_map('strval', $flags))));
 
         return substr(implode(',', $flags), 0, 120);
+    }
+
+    /**
+     * Close a session that stayed open long past the end of its shift.
+     *
+     * A forgotten exit punch used to be a dead end: `uniq_records_open` makes a
+     * second ENTRY impossible while a row is open, so the employee could not
+     * punch in again at all until a manager corrected the row by hand - and for a
+     * night shift that could be every single day. This closes such a row the
+     * moment the person punches in again.
+     *
+     * What is written is deliberately conservative:
+     *   - the exit is the END OF THE SHIFT WINDOW (capped at "now"), never the
+     *     punch time, so no hour is invented that nobody worked,
+     *   - a session without a shift is never closed automatically (there is no
+     *     window to speak of) - that stays a manual correction,
+     *   - nothing happens before the window ends plus
+     *     `attendance.stale_session_grace_minutes`, so somebody who is simply
+     *     still inside is left alone,
+     *   - the day is recomputed with its sibling sessions through the same
+     *     aggregateDay() a manual correction uses, and the row is flagged
+     *     `auto_closed` so the panel shows it was not a punch.
+     *
+     * @param array<string,mixed> $open the open record row
+     */
+    private function closeStaleSession(int $customerId, int $employeeId, int $deviceId, array $open, string $now, string $requestId): bool
+    {
+        $recordId = (int) ($open['id'] ?? 0);
+        $openDate = substr((string) ($open['attendance_date'] ?? ''), 0, 10);
+        $entryAt  = AttendanceCalculator::normalizeDateTime($open['entry_at'] ?? null);
+
+        if ($recordId <= 0 || $openDate === '' || $entryAt === null) {
+            return false;
+        }
+
+        $snapshot = json_decode((string) ($open['shift_snapshot'] ?? ''), true);
+        $shift    = ShiftResolver::fromSnapshot(is_array($snapshot) ? $snapshot : null);
+
+        if ($shift === null) {
+            $shift = ShiftResolver::resolve($employeeId, $customerId, $openDate);
+        }
+
+        if ($shift === null || trim((string) ($shift['start_time'] ?? '')) === '') {
+            return false;
+        }
+
+        $window = AttendanceCalculator::window($shift, $openDate);
+        $endTs  = strtotime((string) $window['end']);
+        $nowTs  = strtotime($now);
+
+        if ($endTs === false || $nowTs === false) {
+            return false;
+        }
+
+        $grace = max(0, (int) Config::get('attendance.stale_session_grace_minutes', 120));
+
+        if ($nowTs < $endTs + ($grace * 60)) {
+            return false;
+        }
+
+        $exitAt = date('Y-m-d H:i:s', min($endTs, $nowTs));
+
+        if (strtotime($exitAt) <= strtotime((string) $entryAt)) {
+            return false;
+        }
+
+        $branchId = isset($open['branch_id']) ? (int) $open['branch_id'] : 0;
+        $context  = $this->dayContext($customerId, $employeeId, $openDate, $branchId);
+
+        $sessions   = AttendanceRecord::sessionsOn($customerId, $employeeId, $openDate);
+        $sessions[] = ['entry_at' => $entryAt, 'exit_at' => $exitAt];
+
+        $day = AttendanceCalculator::aggregateDay($sessions, $shift, $context, $openDate);
+
+        // `open_key IS NOT NULL` in the WHERE clause is what makes this safe
+        // under two concurrent punches: only the first request closes the row.
+        $statement = Database::run(
+            'UPDATE `' . Database::table('attendance_records') . '`'
+            . ' SET `exit_at` = ?, `work_minutes` = ?, `late_minutes` = ?, `early_leave_minutes` = ?,'
+            . ' `overtime_minutes` = ?, `status` = ?, `flags` = ?, `open_key` = NULL, `last_event` = ?,'
+            . ' `modify_reason` = ?, `recalculated_at` = ?'
+            . ' WHERE `id` = ? AND `customer_id` = ? AND `open_key` IS NOT NULL AND `deleted_at` IS NULL',
+            [
+                $exitAt,
+                (int) $day['work_minutes'],
+                (int) $day['late_minutes'],
+                (int) $day['early_leave_minutes'],
+                (int) $day['overtime_minutes'],
+                (string) $day['status'],
+                $this->flagsToString(array_merge((array) $day['flags'], [AttendanceCalculator::FLAG_AUTO_CLOSED])),
+                'exit',
+                'خروج فراموش‌شده به صورت خودکار با پایان پنجره شیفت بسته شد.',
+                date('Y-m-d H:i:s'),
+                $recordId,
+                $customerId,
+            ]
+        );
+
+        if ($statement->rowCount() === 0) {
+            return false;
+        }
+
+        $this->log('attendance.session.auto_closed', $customerId, $deviceId, $employeeId, [
+            'record_id'   => $recordId,
+            'open_date'   => $openDate,
+            'entry_at'    => $entryAt,
+            'exit_at'     => $exitAt,
+            'request_id'  => $requestId,
+        ]);
+
+        AttendanceEvent::fire($customerId, AttendanceEvent::MANUAL_CORRECTED, [
+            'record_id' => $recordId,
+            'action'    => 'auto_close',
+            'before'    => ['entry_at' => $entryAt, 'exit_at' => null, 'status' => (string) ($open['status'] ?? '')],
+            'after'     => ['entry_at' => $entryAt, 'exit_at' => $exitAt, 'status' => (string) $day['status']],
+            'reason'    => 'بستن خودکار جلسه باز (خروج فراموش‌شده)',
+        ], $employeeId, $deviceId, $recordId, 'warning');
+
+        AuditLog::record('attendance.session.auto_closed', 'success',
+            'جلسه باز #' . $recordId . ' به صورت خودکار بسته شد.',
+            [
+                'record_id' => $recordId,
+                'entry_at'  => $entryAt,
+                'exit_at'   => $exitAt,
+                'request_id' => $requestId,
+            ],
+            'attendance', 'attendance_record', $recordId, $customerId);
+
+        return true;
+    }
+
+    /**
+     * Is a shift of `$date` still inside its window right now?
+     *
+     * Only a shift that crosses midnight can be, and only for TODAY: once the
+     * date is in the past its window has ended by definition. Used by
+     * closeDay() so that closing the current day at 23:00 does not write an
+     * absence for somebody who is inside a 20:00 → 06:00 shift.
+     *
+     * @param array<string,mixed> $shift
+     */
+    private function nightShiftStillRunning(array $shift, string $date): bool
+    {
+        if ($date !== date('Y-m-d')) {
+            return false;
+        }
+
+        $window = AttendanceCalculator::window($shift, $date);
+
+        if (!($window['crosses'] ?? false)) {
+            return false;
+        }
+
+        $end = strtotime((string) $window['end']);
+
+        return $end !== false && time() < $end;
     }
 
     /**

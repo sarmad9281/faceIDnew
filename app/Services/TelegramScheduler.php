@@ -350,12 +350,20 @@ final class TelegramScheduler
     /**
      * The numbers of the daily report - same source as the panel and Excel.
      *
-     * @return array<string,int|string>
+     * Stage 23 also collects the NAMES behind three of those numbers, because a
+     * manager who reads "غایب: ۳" on a phone still has to open the panel to find
+     * out who. The counts themselves are untouched (they come from the very same
+     * summary query as before); the names are grouped per employee from the
+     * report rows, so somebody with two sessions appears once.
+     *
+     * @return array<string,mixed>
      */
     public function summary(int $customerId, string $date): array
     {
         $reports = new ReportService();
-        $data    = $reports->daily($customerId, ['date_from' => $date, 'date_to' => $date], 1, 10);
+        // 500 is the hard cap of ReportService::daily(): one page is enough for
+        // every realistic workshop and the query is already scoped by date.
+        $data    = $reports->daily($customerId, ['date_from' => $date, 'date_to' => $date], 1, 500);
         $summary = $data['summary'];
 
         return [
@@ -368,11 +376,122 @@ final class TelegramScheduler
             'late_minutes'     => (int) $summary['late_minutes'],
             'overtime_minutes' => (int) $summary['overtime_minutes'],
             'work_minutes'     => (int) $summary['work_minutes'],
+        ] + $this->nameBuckets($data['rows'] ?? [], (int) $summary['employees']);
+    }
+
+    /**
+     * Groups the report rows of one day per employee into the buckets the daily
+     * message shows: absent, late (with minutes), on leave and "still inside"
+     * (entered, not out yet).
+     *
+     * The severity order matters: a person who has one absent record and one
+     * late record is reported as absent, not twice.
+     *
+     * @param array<int,array<string,mixed>> $rows
+     * @return array<string,mixed>
+     */
+    private function nameBuckets(array $rows, int $employeeCount): array
+    {
+        /** @var array<int,array{name:string,statuses:array<int,string>,late:int,entered:bool,exited:bool}> $people */
+        $people = [];
+
+        foreach ($rows as $row) {
+            $employeeId = (int) ($row['employee_id'] ?? 0);
+            $name       = trim((string) ($row['first_name'] ?? '') . ' ' . (string) ($row['last_name'] ?? ''));
+
+            if ($employeeId <= 0 || $name === '') {
+                continue;
+            }
+
+            if (!isset($people[$employeeId])) {
+                $people[$employeeId] = ['name' => $name, 'statuses' => [], 'late' => 0, 'entered' => false, 'exited' => false];
+            }
+
+            $people[$employeeId]['statuses'][] = (string) ($row['status'] ?? '');
+            $people[$employeeId]['late']      += max(0, (int) ($row['late_minutes'] ?? 0));
+            $people[$employeeId]['entered']    = $people[$employeeId]['entered'] || ($row['entry_at'] ?? null) !== null;
+            $people[$employeeId]['exited']     = $people[$employeeId]['exited'] || ($row['exit_at'] ?? null) !== null;
+        }
+
+        $absent     = [];
+        $late       = [];
+        $onLeave    = [];
+        $inProgress = [];
+
+        foreach ($people as $person) {
+            $statuses = $person['statuses'];
+
+            if (in_array('absent', $statuses, true)) {
+                $absent[] = $person['name'];
+                continue;
+            }
+
+            if (in_array('on_leave', $statuses, true)) {
+                $onLeave[] = $person['name'];
+                continue;
+            }
+
+            if ($person['late'] > 0 || in_array('late', $statuses, true)) {
+                $late[] = ['name' => $person['name'], 'minutes' => $person['late']];
+                continue;
+            }
+
+            if ($person['entered'] && !$person['exited']) {
+                $inProgress[] = $person['name'];
+            }
+        }
+
+        // Late entries are ordered by the longest delay first: that is the one
+        // a manager acts on.
+        usort($late, static fn (array $a, array $b): int => $b['minutes'] <=> $a['minutes']);
+
+        return [
+            'absent_names'    => $absent,
+            'late_names'      => $late,
+            'on_leave_names'  => $onLeave,
+            'in_progress'     => $inProgress,
+            // How many rows the report returned versus how many people exist -
+            // when they differ the name lists are visibly incomplete.
+            'list_complete'   => count($rows) < 500,
+            'people_count'    => count($people),
+            'employee_count'  => $employeeCount,
         ];
     }
 
     /**
-     * @param array<string,int|string> $summary
+     * Renders the daily report exactly as it would be sent, without sending it.
+     * The manager panel shows this preview so nobody has to send a test message
+     * to a real channel to see what the bot writes.
+     *
+     * @return array<string,mixed>
+     */
+    public function previewFor(int $customerId, string $date): array
+    {
+        $summary = $this->summary($customerId, $date);
+        $text    = $this->message($customerId, $date, $summary);
+
+        return [
+            'ok'         => true,
+            'date'       => $date,
+            'jalali'     => Jalali::date($date),
+            'summary'    => $summary,
+            'message'    => $text,
+            'chars'      => strlen($text),
+            'truncated'  => strlen($text) > self::MESSAGE_LIMIT,
+        ];
+    }
+
+    /**
+     * Telegram rejects a message longer than 4096 characters, so the name lists
+     * are trimmed to stay inside that limit instead of failing the send.
+     */
+    public const MESSAGE_LIMIT = 4096;
+
+    /** How many names of one bucket are written out before "و N نفر دیگر". */
+    private const NAME_LIMIT = 15;
+
+    /**
+     * @param array<string,mixed> $summary
      */
     public function message(int $customerId, string $date, array $summary): string
     {
@@ -395,6 +514,98 @@ final class TelegramScheduler
             'مجموع کارکرد: ' . TelegramNotifier::minutesLabel((int) $summary['work_minutes']),
         ];
 
-        return implode("\n", $lines);
+        /* Stage 23: WHO is behind the numbers. Each bucket is only added when it
+           is not empty, so a clean day stays the short ten-line message it was. */
+        $absent = array_values(array_filter(array_map('strval', (array) ($summary['absent_names'] ?? []))));
+
+        if ($absent !== []) {
+            $lines[] = '';
+            $lines[] = 'غایبان (' . count($absent) . ' نفر):';
+            $lines   = array_merge($lines, $this->nameLines($absent));
+        }
+
+        $late = [];
+
+        foreach ((array) ($summary['late_names'] ?? []) as $entry) {
+            if (is_array($entry)) {
+                $late[] = (string) ($entry['name'] ?? '') . ' — ' . TelegramNotifier::minutesLabel((int) ($entry['minutes'] ?? 0));
+            } elseif (trim((string) $entry) !== '') {
+                $late[] = (string) $entry;
+            }
+        }
+
+        if ($late !== []) {
+            $lines[] = '';
+            $lines[] = 'تأخیر (' . count($late) . ' نفر):';
+            $lines   = array_merge($lines, $this->nameLines($late));
+        }
+
+        $leave = array_values(array_filter(array_map('strval', (array) ($summary['on_leave_names'] ?? []))));
+
+        if ($leave !== []) {
+            $lines[] = '';
+            $lines[] = 'مرخصی (' . count($leave) . ' نفر):';
+            $lines   = array_merge($lines, $this->nameLines($leave));
+        }
+
+        $open = array_values(array_filter(array_map('strval', (array) ($summary['in_progress'] ?? []))));
+
+        if ($open !== []) {
+            $lines[] = '';
+            $lines[] = 'هنوز داخل مجموعه (' . count($open) . ' نفر):';
+            $lines   = array_merge($lines, $this->nameLines($open));
+        }
+
+        if (($summary['list_complete'] ?? true) === false) {
+            $lines[] = '';
+            $lines[] = 'توجه: تعداد رکوردهای روز بیش از حد گزارش است؛ فهرست اسامی ممکن است کامل نباشد.';
+        }
+
+        return $this->clamp(implode("\n", $lines));
+    }
+
+    /**
+     * A bullet list of names, cut at NAME_LIMIT entries. The remainder is
+     * reported as a count so the reader still knows the list was longer.
+     *
+     * @param array<int,string> $names
+     * @return array<int,string>
+     */
+    private function nameLines(array $names): array
+    {
+        $shown = array_slice($names, 0, self::NAME_LIMIT);
+        $rest  = count($names) - count($shown);
+        $lines = [];
+
+        foreach ($shown as $name) {
+            $lines[] = '• ' . $name;
+        }
+
+        if ($rest > 0) {
+            $lines[] = '• و ' . $rest . ' نفر دیگر';
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Keeps the message inside Telegram's 4096 character limit. Whole lines are
+     * dropped from the end (the name lists) - the numbers at the top always stay,
+     * because a truncated count is worse than a missing name.
+     */
+    private function clamp(string $text): string
+    {
+        if (strlen($text) <= self::MESSAGE_LIMIT) {
+            return $text;
+        }
+
+        $lines = explode("\n", $text);
+        $note  = '… (ادامه فهرست به دلیل محدودیت طول پیام تلگرام حذف شد)';
+
+        while (count($lines) > 1 && strlen(implode("\n", $lines)) + strlen($note) + 1 > self::MESSAGE_LIMIT) {
+            array_pop($lines);
+        }
+
+        return implode("\n", $lines) . "\n" . $note;
     }
 }

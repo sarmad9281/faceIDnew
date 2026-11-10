@@ -61,8 +61,28 @@ final class TelegramController
             ];
         }
 
+        /* Stage 23: the daily report is shown here BEFORE anybody sends it, so a
+           manager can read the exact text - including the names of the absent,
+           late and on-leave people - and only then press the send button.
+           `?preview_date=` renders any past day with the same code path the
+           scheduler uses. Building the preview never sends and never queues. */
+        $previewDate = Input::date((string) $request->input('preview_date', '')) ?? date('Y-m-d');
+        $dailyPreview = null;
+
+        try {
+            $dailyPreview = (new TelegramScheduler())->previewFor($customerId, $previewDate);
+        } catch (\Throwable $e) {
+            $dailyPreview = [
+                'ok'      => false,
+                'date'    => $previewDate,
+                'message' => 'پیش‌نمایش گزارش روزانه ساخته نشد.',
+                'chars'   => 0,
+            ];
+        }
+
         return Response::html(View::render('manager/telegram/index', [
             'title'         => 'ربات تلگرام',
+            'dailyPreview'  => $dailyPreview,
             'chatId'        => $settings['telegram_chat_id'] ?? '',
             'notifications' => $notifications,
             'configured'    => ($settings['telegram_chat_id'] ?? '') !== '',

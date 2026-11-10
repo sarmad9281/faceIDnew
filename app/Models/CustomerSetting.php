@@ -33,6 +33,12 @@ final class CustomerSetting extends Model
         'week_start', 'currency', 'telegram_chat_id', 'telegram_notifications',
         'telegram_daily_summary', 'telegram_late_alert', 'telegram_absent_alert',
         'telegram_leave_alert', 'telegram_updated_at',
+        // stage 23 - social security (SSO) diskette + bank payment file
+        'insurance_workshop_code', 'insurance_workshop_name', 'insurance_workshop_address',
+        'insurance_employer_name', 'insurance_list_kind', 'insurance_list_no',
+        'insurance_contract_row', 'insurance_employee_rate', 'insurance_employer_rate',
+        'insurance_unemployment_rate', 'insurance_max_mash', 'insurance_period_rate',
+        'insurance_description', 'bank_name', 'bank_payment_note',
     ];
 
     /**

@@ -65,8 +65,14 @@ use App\Models\Shift;
                             <?= $e($shift['name']) ?>
                             <small class="ltr"><?= $e($shift['code'] ?? '') ?></small>
                         </td>
-                        <td class="ltr"><?= $e(Shift::timeLabel($shift['start_time'])) ?> - <?= $e(Shift::timeLabel($shift['end_time'])) ?>
-                            <?php if (!empty($shift['crosses_midnight'])): ?><small>شبانه</small><?php endif; ?>
+                        <td class="ltr">
+                            <?php /* Stage 23: a shift that ends after midnight says so in words. "20:00 - 06:00"
+                                       alone reads like a broken range, and the punch that arrives at 02:10 belongs
+                                       to the day BEFORE - which is what the label now makes obvious. */ ?>
+                            <?= $e(Shift::windowLabel($shift)) ?>
+                            <?php if (Shift::isNightShift($shift)): ?>
+                                <span class="badge badge-warn">شیفت شبانه</span>
+                            <?php endif; ?>
                         </td>
                         <td><?= $e(Shift::hoursLabel(Shift::workMinutes($shift))) ?></td>
                         <td><?= $e($shift['late_grace_minutes']) ?> دقیقه</td>

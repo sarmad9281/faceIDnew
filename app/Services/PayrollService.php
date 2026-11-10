@@ -32,6 +32,20 @@ final class PayrollService
     public const CODE_NO_PROFILE = 'PAYROLL_PROFILE_REQUIRED';
     public const CODE_BAD_RANGE = 'PAYROLL_BAD_RANGE';
 
+    /**
+     * The live columns of attendance_payroll_profiles, read once per request.
+     *
+     * Stage 23 adds the SSO identity columns and the bank account columns
+     * through MigrationService (declarative, idempotent). An installation that
+     * has not run its migration yet does not have them, and writing a column
+     * that does not exist would fail the WHOLE profile save. So every optional
+     * column is filtered through this list: the rate contract always saves, the
+     * insurance fields save as soon as the database has them.
+     *
+     * @var array<int,string>|null
+     */
+    private static $profileColumns = null;
+
     /* ==================================================================
      * Profiles
      * ==================================================================*/
@@ -117,6 +131,18 @@ final class PayrollService
         ];
 
         $existing = $this->profileFor($customerId, $employeeId);
+
+        /* Stage 23: the SSO diskette fields and the bank account live on the
+           profile (one row per employee, exactly where the rate contract is).
+           A column the database does not have yet is skipped, never invented
+           and never fatal. */
+        $columns = $this->profileColumns();
+
+        foreach ($this->insuranceInput($input) as $column => $value) {
+            if (in_array($column, $columns, true)) {
+                $data[$column] = $value;
+            }
+        }
 
         if ($existing === null) {
             $data['uuid']       = Security::uuid4();
@@ -632,5 +658,78 @@ final class PayrollService
         }
 
         return (float) $value;
+    }
+
+    /**
+     * The columns attendance_payroll_profiles really has, read once per request
+     * and cached. `SHOW COLUMNS` never takes a bound parameter, so the table
+     * name goes through Database::table() (which owns the prefix) and nothing
+     * else is interpolated.
+     *
+     * @return array<int,string>
+     */
+    private function profileColumns(): array
+    {
+        if (self::$profileColumns !== null) {
+            return self::$profileColumns;
+        }
+
+        $columns = [];
+
+        try {
+            foreach (Database::select('SHOW COLUMNS FROM `' . Database::table('payroll_profiles') . '`') as $row) {
+                $columns[] = (string) ($row['Field'] ?? '');
+            }
+        } catch (\Throwable $e) {
+            // A database that cannot be introspected must not stop a payroll
+            // save: with no column list nothing optional is written.
+            $columns = [];
+        }
+
+        self::$profileColumns = $columns;
+
+        return $columns;
+    }
+
+    /**
+     * Normalises the stage 23 identity / bank input of one profile.
+     *
+     * Digits only for the numbers the SSO reads as digits (insurance number,
+     * identity document number, job code), a real DATE or NULL for the three
+     * dates, an enum value or NULL for the gender, and the IBAN with its spaces
+     * removed and upper case - because "IR06 2960 ..." and "ir062960..." are
+     * the same account and a bank file must not carry the pretty version.
+     *
+     * @param array<string,mixed> $input
+     * @return array<string,mixed>
+     */
+    private function insuranceInput(array $input): array
+    {
+        $digits = static function ($value, int $max): string {
+            $clean = preg_replace('/\D/', '', \App\Support\Encoding::toLatinDigits((string) ($value ?? ''))) ?? '';
+
+            return substr($clean, 0, $max);
+        };
+
+        $iban = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($input['iban'] ?? '')) ?? '');
+
+        $gender = strtolower(trim((string) ($input['gender'] ?? '')));
+        $gender = in_array($gender, ['male', 'female'], true) ? $gender : null;
+
+        return [
+            'insurance_no'       => $digits($input['insurance_no'] ?? '', 20) ?: null,
+            'insurance_job_code' => $digits($input['insurance_job_code'] ?? '', 10) ?: null,
+            'father_name'        => \App\Support\Input::text((string) ($input['father_name'] ?? ''), 80) ?: null,
+            'birth_date'         => \App\Support\Input::date((string) ($input['birth_date'] ?? '')),
+            'id_number'          => $digits($input['id_number'] ?? '', 20) ?: null,
+            'id_place'           => \App\Support\Input::text((string) ($input['id_place'] ?? ''), 60) ?: null,
+            'id_issue_date'      => \App\Support\Input::date((string) ($input['id_issue_date'] ?? '')),
+            'gender'             => $gender,
+            'nationality'        => \App\Support\Input::text((string) ($input['nationality'] ?? ''), 30) ?: null,
+            'iban'               => substr($iban, 0, 34) ?: null,
+            'bank_name'          => \App\Support\Input::text((string) ($input['bank_name'] ?? ''), 60) ?: null,
+            'account_number'     => substr($digits($input['account_number'] ?? '', 40), 0, 40) ?: null,
+            'insurance_end_date' => \App\Support\Input::date((string) ($input['insurance_end_date'] ?? '')),
+        ];
     }
 }

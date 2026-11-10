@@ -10,6 +10,7 @@
  * @var bool $configured
  * @var string|null $lastSaved
  * @var array<string,mixed> $engine
+ * @var array<string,mixed>|null $dailyPreview   stage 23: text the bot would send
  * @var callable $e
  * @var callable $url
  * @var callable $csrf
@@ -112,7 +113,7 @@ $settings = $engine['settings'];
             <form method="post" action="<?= $e($url('/manager/telegram/daily')) ?>">
                 <?= $csrf() ?>
                 <input type="hidden" name="date" value="<?= $e(date('Y-m-d')) ?>">
-                <button type="submit" class="btn btn-ghost btn-sm">ارسال گزارش امروز</button>
+                <button type="submit" class="btn btn-ghost btn-sm">ارسال فوری گزارش امروز به تلگرام</button>
             </form>
             <form method="post" action="<?= $e($url('/manager/telegram/drain')) ?>">
                 <?= $csrf() ?>
@@ -123,6 +124,67 @@ $settings = $engine['settings'];
             ارسال خودکار توسط Cron انجام می‌شود:
             <span class="ltr">*​/1 * * * * php tools/telegram_worker.php</span>
         </p>
+    </article>
+
+    <?php /* =================================================================
+     * STAGE 23 - گزارش روزانه: exactly what the bot writes, with the NAMES
+     * of the absent, late and on-leave people. Nothing is sent from here; the
+     * preview is built by TelegramScheduler::previewFor(), the same code the
+     * worker runs, and the send button stays the one above.
+     * ================================================================== */ ?>
+    <article class="card">
+        <div class="card-head">
+            <h2>گزارش روزانه</h2>
+            <span class="badge"><?= $e(Jalali::date((string) ($dailyPreview['date'] ?? date('Y-m-d')))) ?></span>
+        </div>
+
+        <form method="get" action="<?= $e($url('/manager/telegram')) ?>">
+            <div class="filters">
+                <label class="field">
+                    <span>تاریخ پیش‌نمایش</span>
+                    <input type="date" name="preview_date" class="ltr" value="<?= $e((string) ($dailyPreview['date'] ?? date('Y-m-d'))) ?>">
+                </label>
+                <div class="field"><button type="submit" class="btn btn-ghost btn-block">نمایش پیش‌نمایش</button></div>
+            </div>
+        </form>
+
+        <?php if (!empty($dailyPreview['ok'])): ?>
+            <?php
+            $summary = (array) ($dailyPreview['summary'] ?? []);
+            ?>
+            <div class="table-wrap" style="margin-top:10px">
+                <table class="table">
+                    <thead><tr><th>پرسنل</th><th>حاضر</th><th>غایب</th><th>مرخصی</th><th>تأخیر</th><th>داخل مجموعه</th></tr></thead>
+                    <tbody>
+                        <tr class="num">
+                            <td><?= $e((string) (int) ($summary['employees'] ?? 0)) ?></td>
+                            <td><?= $e((string) (int) ($summary['present'] ?? 0)) ?></td>
+                            <td><?= $e((string) count((array) ($summary['absent_names'] ?? []))) ?></td>
+                            <td><?= $e((string) count((array) ($summary['on_leave_names'] ?? []))) ?></td>
+                            <td><?= $e((string) count((array) ($summary['late_names'] ?? []))) ?></td>
+                            <td><?= $e((string) count((array) ($summary['in_progress'] ?? []))) ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="small" style="margin-top:12px">
+                متن ارسالی
+                <span class="badge"><?= $e((string) (int) ($dailyPreview['chars'] ?? 0)) ?> نویسه</span>
+                <?php if (!empty($dailyPreview['truncated'])): ?>
+                    <span class="badge badge-warn">کوتاه‌شده برای تلگرام</span>
+                <?php endif; ?>
+            </h3>
+
+            <pre dir="rtl" class="ltr-reset" style="white-space:pre-wrap;background:var(--surface-2,#f6f7f9);border:1px solid var(--border,#e3e6ea);border-radius:8px;padding:10px;margin-top:6px;font-family:inherit;font-size:.86rem;line-height:1.9"><?= $e((string) ($dailyPreview['message'] ?? '')) ?></pre>
+
+            <p class="muted small" style="margin-top:8px">
+                این متن همان چیزی است که Cron در ساعت تعیین‌شده یا دکمه «ارسال فوری گزارش امروز به تلگرام» می‌فرستد.
+                فهرست اسامی فقط وقتی اضافه می‌شود که آن بخش خالی نباشد؛ هر بخش حداکثر ۱۵ نام و سپس «و N نفر دیگر» دارد.
+            </p>
+        <?php else: ?>
+            <p class="alert alert-warn" style="margin-top:10px"><?= $e((string) ($dailyPreview['message'] ?? 'پیش‌نمایش در دسترس نیست.')) ?></p>
+        <?php endif; ?>
     </article>
 
     <article class="card">
